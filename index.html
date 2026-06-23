@@ -1,0 +1,1759 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AAG Corporation — Inventory Dashboard 2025–2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f2f5; color: #1a1a2e; font-size: 15px; }
+  .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: white; padding: 22px 32px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 12px rgba(0,0,0,.3); }
+  .header h1 { font-size: 1.5rem; font-weight: 600; }
+  .header .subtitle { font-size: 0.9rem; opacity: .7; margin-top: 3px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; padding: 24px 32px 0; }
+  .card { background: white; border-radius: 12px; padding: 18px 20px; box-shadow: 0 1px 6px rgba(0,0,0,.08); border-left: 4px solid #4f46e5; cursor: pointer; transition: all .18s; position: relative; }
+  .card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.13); transform: translateY(-1px); }
+  .card.active-filter { outline: 2.5px solid #4f46e5; box-shadow: 0 4px 20px rgba(79,70,229,.2); }
+  .card.green { border-left-color: #10b981; } .card.green.active-filter { outline-color: #10b981; box-shadow: 0 4px 20px rgba(16,185,129,.2); }
+  .card.red { border-left-color: #ef4444; } .card.red.active-filter { outline-color: #ef4444; box-shadow: 0 4px 20px rgba(239,68,68,.2); }
+  .card.blue { border-left-color: #3b82f6; } .card.blue.active-filter { outline-color: #3b82f6; }
+  .card.purple { border-left-color: #8b5cf6; } .card.purple.active-filter { outline-color: #8b5cf6; }
+  .card-label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: .05em; color: #6b7280; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; }
+  .card-badge { font-size: 0.72rem; background: #f3f4f6; color: #374151; padding: 1px 7px; border-radius: 99px; font-weight: 600; }
+  .card-value { font-size: 1.55rem; font-weight: 700; color: #1a1a2e; line-height: 1.1; margin-bottom: 6px; }
+  .card-sub { font-size: 0.82rem; color: #9ca3af; margin-bottom: 10px; }
+  .card-rows { border-top: 1px solid #f3f4f6; margin-top: 8px; padding-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+  .card-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: #374151; gap: 6px; }
+  .card-row-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; color: #6b7280; }
+  .card-row-val { font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .card-hint { font-size: 0.7rem; color: #c4b5fd; margin-top: 8px; text-align: right; }
+  .filter-bar { display: none; padding: 8px 32px; background: #eef2ff; border-bottom: 1px solid #c7d2fe; font-size: 0.88rem; color: #4f46e5; align-items: center; gap: 10px; }
+  .filter-bar.show { display: flex; }
+  .filter-bar button { background: #4f46e5; color: white; border: none; border-radius: 6px; padding: 4px 12px; font-size: 0.82rem; cursor: pointer; }
+  .section { padding: 24px 32px; }
+  .section-title { font-size: 1.05rem; font-weight: 600; color: #374151; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .section-title::before { content: ''; display: block; width: 4px; height: 18px; background: #4f46e5; border-radius: 2px; }
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .chart-box { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 6px rgba(0,0,0,.08); }
+  .chart-box h3 { font-size: 0.95rem; color: #6b7280; margin-bottom: 14px; font-weight: 500; }
+  .chart-box canvas { max-height: 280px; }
+  /* Main nav tabs */
+  .main-tabs { display: flex; gap: 0; padding: 0 32px; border-bottom: 2px solid #e5e7eb; margin-top: 16px; }
+  .main-tab { padding: 14px 28px; font-size: 1rem; font-weight: 500; cursor: pointer; border-bottom: 3px solid transparent; color: #6b7280; transition: all .15s; margin-bottom: -2px; }
+  .main-tab.active { color: #4f46e5; border-bottom-color: #4f46e5; }
+  .tab-content { display: none; } .tab-content.active { display: block; }
+  /* Table */
+  .table-wrap { background: white; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,.08); overflow: hidden; }
+  .table-controls { padding: 16px 20px; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .table-controls label { font-size: 0.9rem; color: #6b7280; }
+  .table-controls select, .table-controls input { border: 1px solid #e5e7eb; border-radius: 6px; padding: 7px 12px; font-size: 0.9rem; color: #374151; outline: none; }
+  .tab-btns { display: flex; gap: 6px; }
+  .tab-btn { padding: 7px 16px; border-radius: 6px; border: 1px solid #e5e7eb; background: white; font-size: 0.88rem; cursor: pointer; color: #6b7280; transition: all .15s; }
+  .tab-btn.active { background: #4f46e5; color: white; border-color: #4f46e5; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.93rem; }
+  thead th { background: #f9fafb; padding: 12px 16px; text-align: left; font-weight: 600; color: #374151; border-bottom: 2px solid #e5e7eb; white-space: nowrap; font-size: 0.9rem; }
+  thead th.num { text-align: right; }
+  tbody tr { border-bottom: 1px solid #f3f4f6; transition: background .1s; }
+  tbody tr:hover { background: #f8f9ff; }
+  tbody td { padding: 12px 16px; vertical-align: middle; }
+  td.loc { font-weight: 500; color: #1a1a2e; max-width: 280px; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.diff-pos { text-align: right; color: #ef4444; font-weight: 600; }
+  td.diff-neg { text-align: right; color: #10b981; font-weight: 600; }
+  .badge { display: inline-flex; align-items: center; gap: 3px; font-size: 0.82rem; padding: 3px 9px; border-radius: 99px; font-weight: 600; }
+  .badge.up { background: #fee2e2; color: #991b1b; } .badge.down { background: #d1fae5; color: #065f46; } .badge.flat { background: #f3f4f6; color: #6b7280; }
+  .loc-selector { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .loc-chip { padding: 5px 14px; border-radius: 99px; border: 1px solid #e5e7eb; font-size: 0.85rem; cursor: pointer; background: white; color: #6b7280; transition: all .15s; }
+  .loc-chip.active { border-color: #4f46e5; background: #4f46e5; color: white; }
+  .code-tag { font-size: 0.78rem; background: #f3f4f6; color: #6b7280; padding: 2px 6px; border-radius: 4px; font-family: monospace; margin-left: 4px; }
+  @media (max-width: 768px) { .cards,.section { padding: 16px; } .chart-grid { grid-template-columns: 1fr; } .main-tabs { padding: 0 16px; } }
+  /* ====== PIVOT BUILDER ====== */
+  .pivot-builder { padding: 20px 32px; }
+  .pivot-toolbar { background: white; border-radius: 12px; padding: 20px 24px; box-shadow: 0 1px 6px rgba(0,0,0,.08); margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+  .dim-box { display: flex; flex-direction: column; gap: 8px; min-width: 160px; }
+  .dim-label { font-size: 0.82rem; text-transform: uppercase; letter-spacing: .06em; color: #9ca3af; font-weight: 600; }
+  .dim-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+  .dim-btn { padding: 7px 14px; border-radius: 6px; border: 1.5px solid #e5e7eb; background: white; font-size: 0.88rem; cursor: pointer; color: #6b7280; transition: all .15s; white-space: nowrap; }
+  .dim-btn.active { background: #4f46e5; color: white; border-color: #4f46e5; }
+  .dim-btn:hover:not(.active) { border-color: #a5b4fc; color: #4f46e5; }
+  .pivot-sep { width: 1px; background: #f3f4f6; align-self: stretch; }
+  .pivot-wrap { background: white; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,.08); overflow: hidden; }
+  .pivot-table-scroll { overflow-x: auto; }
+  .pivot-table { border-collapse: collapse; font-size: 0.93rem; min-width: 100%; }
+  .pivot-table th { background: #f9fafb; padding: 12px 18px; border-bottom: 2px solid #e5e7eb; border-right: 1px solid #f3f4f6; font-weight: 600; color: #374151; white-space: nowrap; text-align: center; font-size: 0.9rem; }
+  .pivot-table th.row-header { text-align: left; min-width: 260px; }
+  .pivot-table td { padding: 11px 18px; border-bottom: 1px solid #f3f4f6; border-right: 1px solid #f3f4f6; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; position: relative; }
+  .pivot-table td.row-label { text-align: left; font-weight: 500; color: #1a1a2e; cursor: pointer; }
+  .pivot-table td.row-label:hover { color: #4f46e5; text-decoration: underline; }
+  .pivot-table tr.total-row td { background: #f1f5ff; font-weight: 700; border-top: 2px solid #c7d2fe; }
+  .pivot-table tr.total-row td.row-label { color: #4f46e5; }
+  .pivot-table td.diff-pos-cell { color: #991b1b; }
+  .pivot-table td.diff-neg-cell { color: #065f46; }
+  .heatmap-cell { position: relative; }
+  /* Drill-down panel */
+  .drill-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 100; }
+  .drill-panel { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 100vw); background: white; box-shadow: -4px 0 24px rgba(0,0,0,.15); z-index: 101; overflow-y: auto; display: flex; flex-direction: column; }
+  .drill-header { padding: 20px 24px 16px; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; justify-content: space-between; }
+  .drill-title { font-size: 1.05rem; font-weight: 700; color: #1a1a2e; }
+  .drill-close { width: 34px; height: 34px; border-radius: 50%; border: 1px solid #e5e7eb; background: white; cursor: pointer; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; color: #6b7280; }
+  .drill-close:hover { background: #fee2e2; color: #ef4444; border-color: #fca5a5; }
+  .drill-body { padding: 20px 24px; flex: 1; }
+  .drill-stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
+  .drill-stat { background: #f9fafb; border-radius: 8px; padding: 12px 14px; }
+  .drill-stat-label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: .05em; color: #9ca3af; margin-bottom: 4px; }
+  .drill-stat-val { font-size: 1.1rem; font-weight: 700; color: #1a1a2e; }
+  .drill-chart-box { margin: 16px 0; }
+  .drill-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; margin-top: 12px; }
+  .drill-table th { background: #f9fafb; padding: 10px 12px; border-bottom: 2px solid #e5e7eb; text-align: right; font-weight: 600; color: #6b7280; }
+  .drill-table th:first-child { text-align: left; }
+  .drill-table td { padding: 10px 12px; border-bottom: 1px solid #f3f4f6; text-align: right; }
+  .drill-table td:first-child { text-align: left; font-weight: 500; }
+  .no-data-msg { text-align: center; padding: 40px; color: #9ca3af; font-size: 1rem; }
+  .pivot-info-bar { padding: 10px 20px; background: #eff6ff; border-bottom: 1px solid #bfdbfe; font-size: 0.88rem; color: #1e40af; display: none; }
+  .toggle-switch { display: flex; align-items: center; gap: 7px; font-size: 0.9rem; color: #6b7280; cursor: pointer; }
+  .toggle-switch input { accent-color: #4f46e5; width: 14px; height: 14px; cursor: pointer; }
+
+  .year-filter { display:flex; gap:6px; align-items:center; }
+  .year-btn { background:rgba(255,255,255,.12); color:rgba(255,255,255,.85); border:1px solid rgba(255,255,255,.25); border-radius:20px; padding:5px 14px; font-size:.82rem; cursor:pointer; transition:all .15s; }
+  .year-btn:hover { background:rgba(255,255,255,.22); }
+  .year-btn.active { background:#4f46e5; color:white; border-color:#4f46e5; font-weight:600; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>📦 Inventory Dashboard — AAG Corporation</h1>
+    <div class="subtitle">Stock Remaining Report · เปรียบเทียบรายเดือน ปี 2025–2026</div>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
+    <div class="year-filter">
+      <span style="font-size:.75rem;opacity:.6;margin-right:4px;">ปี:</span>
+      <button class="year-btn active" data-year="all" onclick="setYear(null)">ทั้งหมด</button>
+      <button class="year-btn" data-year="2025" onclick="setYear('2025')">2025</button>
+      <button class="year-btn" data-year="2026" onclick="setYear('2026')">2026</button>
+    </div>
+    <div style="font-size:.75rem;opacity:.6;">อัปเดต: <span id="upd"></span></div>
+  </div>
+</div>
+
+<!-- Summary cards -->
+<div class="cards" id="cards"></div>
+
+<!-- Active filter bar -->
+<div class="filter-bar" id="filterBar">
+  <span id="filterBarText">🔍 กำลังแสดงเฉพาะ: </span>
+  <button onclick="clearCardFilter()">✕ ล้าง filter</button>
+</div>
+
+<!-- Main navigation tabs -->
+<div class="main-tabs">
+  <div class="main-tab active" onclick="switchMainTab('loc')">📍 By Location (คลัง)</div>
+  <div class="main-tab" onclick="switchMainTab('cat')">📦 By Category (กลุ่มสินค้า)</div>
+  <div class="main-tab" onclick="switchMainTab('pivot')">🔍 Pivot & Drill-down</div>
+</div>
+
+<!-- ============ TAB: LOCATION ============ -->
+<div id="tab-loc" class="tab-content active">
+
+  <!-- Charts -->
+  <div class="section">
+    <div class="section-title">ภาพรวมแนวโน้ม (By Location)</div>
+    <div class="chart-grid">
+      <div class="chart-box"><h3>มูลค่าสินค้าคงคลังรวม (Bal Amount)</h3><canvas id="chartAmount"></canvas></div>
+      <div class="chart-box"><h3>จำนวนสินค้ารวม (Bal QTY)</h3><canvas id="chartQty"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Location trend chart -->
+  <div class="section">
+    <div class="section-title">แนวโน้มแต่ละคลัง (Bal Amount)</div>
+    <div class="chart-box" style="background:white;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.08);">
+      <div class="loc-selector" id="locChips"></div>
+      <canvas id="chartLoc" style="max-height:300px;"></canvas>
+    </div>
+  </div>
+
+  <!-- Location table -->
+  <div class="section">
+    <div class="section-title">ตารางเปรียบเทียบรายคลัง</div>
+    <div class="table-wrap">
+      <div class="table-controls">
+        <div class="tab-btns" id="tabBtns"></div>
+        <label>แสดง:</label>
+        <select id="metricSel" onchange="renderLocTable()">
+          <option value="amount">Bal Amount (บาท)</option>
+          <option value="qty">Bal QTY (ชิ้น)</option>
+        </select>
+        <input id="searchBox" placeholder="🔍 ค้นหาคลัง..." oninput="renderLocTable()" style="min-width:180px;">
+      </div>
+      <div style="overflow-x:auto;"><table><thead id="loc-thead"></thead><tbody id="loc-tbody"></tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TAB: CATEGORY ============ -->
+<div id="tab-cat" class="tab-content">
+
+  <div class="section">
+    <div class="section-title">ภาพรวมแนวโน้ม (By Category กลุ่มหลัก 5 digits)</div>
+    <div class="chart-grid">
+      <div class="chart-box"><h3>มูลค่าตาม Category (Bal Amount) — Top 8 กลุ่ม</h3><canvas id="chartCatBar"></canvas></div>
+      <div class="chart-box"><h3>แนวโน้ม Top กลุ่ม — รายเดือน</h3><canvas id="chartCatLine"></canvas></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">ตารางเปรียบเทียบรายกลุ่มสินค้า</div>
+    <div class="table-wrap">
+      <div class="table-controls">
+        <div class="tab-btns" id="catTabBtns"></div>
+        <input id="catSearchBox" placeholder="🔍 ค้นหากลุ่มสินค้า..." oninput="renderCatTable()" style="min-width:200px;">
+      </div>
+      <div style="overflow-x:auto;"><table><thead id="cat-thead"></thead><tbody id="cat-tbody"></tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TAB: PIVOT ============ -->
+<div id="tab-pivot" class="tab-content">
+  <div class="pivot-builder">
+    <!-- Toolbar -->
+    <div class="pivot-toolbar">
+      <div class="dim-box">
+        <div class="dim-label">📋 แถว (Rows)</div>
+        <div class="dim-btns" id="rowDimBtns"></div>
+      </div>
+      <div class="pivot-sep"></div>
+      <div class="dim-box">
+        <div class="dim-label">📊 คอลัมน์ (Columns)</div>
+        <div class="dim-btns" id="colDimBtns"></div>
+      </div>
+      <div class="pivot-sep"></div>
+      <div class="dim-box">
+        <div class="dim-label">💰 ค่า (Values)</div>
+        <div class="dim-btns" id="valBtns"></div>
+      </div>
+      <div class="pivot-sep"></div>
+      <div class="dim-box">
+        <div class="dim-label">⚙️ ตัวเลือก</div>
+        <label class="toggle-switch"><input type="checkbox" id="heatmapToggle" checked onchange="renderPivot()"> Heatmap สี</label>
+        <label class="toggle-switch" style="margin-top:4px;"><input type="checkbox" id="diffToggle" onchange="renderPivot()"> แสดง Diff</label>
+        <label class="toggle-switch" style="margin-top:4px;"><input type="checkbox" id="colTotalToggle" onchange="renderPivot()"> คอลัมน์รวม</label>
+      </div>
+      <div class="pivot-sep"></div>
+      <div class="dim-box" style="min-width:200px;">
+        <div class="dim-label">🔎 กรองเดือน</div>
+        <div id="monthFilterBtns" class="dim-btns"></div>
+      </div>
+    </div>
+
+    <div class="pivot-info-bar" id="pivotInfoBar">
+      ℹ️ มุมมอง <b>Location × Category</b> แสดงข้อมูล <b>Jun 2026</b> จาก raw export (item-level) — ข้อมูล cross-tab มีเฉพาะ Jun 2026
+    </div>
+
+    <div class="pivot-wrap">
+      <div style="padding:14px 20px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <span id="pivotCaption" style="font-size:.85rem;font-weight:600;color:#374151;"></span>
+        <input id="pivotSearch" placeholder="🔍 ค้นหา..." oninput="renderPivot()" style="border:1px solid #e5e7eb;border-radius:6px;padding:5px 10px;font-size:.8rem;outline:none;min-width:160px;">
+      </div>
+      <div class="pivot-table-scroll">
+        <table class="pivot-table" id="pivotTable"></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Drill-down overlay & panel -->
+<div class="drill-overlay" id="drillOverlay" onclick="closeDrill()"></div>
+<div class="drill-panel" id="drillPanel">
+  <div class="drill-header">
+    <div class="drill-title" id="drillTitle"></div>
+    <button class="drill-close" onclick="closeDrill()">✕</button>
+  </div>
+  <div class="drill-body" id="drillBody"></div>
+</div>
+
+<br>
+
+<script>
+// ========== DATA ==========
+const MONTHS = ["Jan 2025","Feb 2025","Mar 2025","Apr 2025","May 2025","Jun 2025","Jul 2025","Aug 2025","Sep 2025","Oct 2025","Nov 2025","Dec 2025","Jan 2026","Feb 2026","Mar 2026","Apr 2026","May 2026","Jun 2026"];
+const COLORS = ["#4f46e5","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#f97316","#ec4899","#14b8a6","#84cc16","#6366f1","#f43f5e","#0ea5e9","#a855f7","#22c55e"];
+
+// Location data (Jan 2025 – Jun 2026)
+const LOC_DATA = [
+  {"location":"SMM-1952 Mulberry Villa phase1","months":[
+    {"month":"Jan 2025","qty":12505,"amount":6354430.3,"diff":null},
+    {"month":"Feb 2025","qty":11912,"amount":6112694.36,"diff":-241735.94},
+    {"month":"Mar 2025","qty":11785,"amount":6001481.76,"diff":-111212.6},
+    {"month":"Apr 2025","qty":11186,"amount":5862029.9,"diff":-139451.86},
+    {"month":"May 2025","qty":11186,"amount":5862029.9,"diff":0},
+    {"month":"Jun 2025","qty":10486,"amount":5880843.44,"diff":18813.54},
+    {"month":"Jul 2025","qty":10483,"amount":5880775.24,"diff":-68.2},
+    {"month":"Aug 2025","qty":10475,"amount":5863657.03,"diff":-17118.21},
+    {"month":"Sep 2025","qty":10478,"amount":5884223.06,"diff":20566.03},
+    {"month":"Oct 2025","qty":10471,"amount":5816897.01,"diff":-67326.05},
+    {"month":"Nov 2025","qty":10494,"amount":5806709.66,"diff":-10187.35},
+    {"month":"Dec 2025","qty":10474,"amount":5734581.89,"diff":-72127.77},
+    {"month":"Jan 2026","qty":10467,"amount":5752302.61,"diff":17720.72},
+    {"month":"Feb 2026","qty":10459,"amount":5709262.59,"diff":-43040.02},
+    {"month":"Mar 2026","qty":10459,"amount":5709262.59,"diff":0},
+    {"month":"Apr 2026","qty":239,"amount":1906589.37,"diff":-3802673.22},
+    {"month":"May 2026","qty":239,"amount":1906589.37,"diff":0},
+    {"month":"Jun 2026","qty":259,"amount":1912133.37,"diff":5544}
+  ]},
+  {"location":"SMM-1953 Mulberry Grove Villas (Phase 2) Bangna","months":[
+    {"month":"Jan 2025","qty":134436,"amount":30398981.82,"diff":null},
+    {"month":"Feb 2025","qty":121094,"amount":30563709.72,"diff":164727.9},
+    {"month":"Mar 2025","qty":141981,"amount":29383140.22,"diff":-1180569.5},
+    {"month":"Apr 2025","qty":127980,"amount":33009848.16,"diff":3626707.94},
+    {"month":"May 2025","qty":129334,"amount":34730893.61,"diff":1721045.45},
+    {"month":"Jun 2025","qty":129640,"amount":35528570.97,"diff":797677.36},
+    {"month":"Jul 2025","qty":129834,"amount":38396746.15,"diff":2868175.18},
+    {"month":"Aug 2025","qty":129718,"amount":38293583.95,"diff":-103162.2},
+    {"month":"Sep 2025","qty":129765,"amount":37913186.32,"diff":-380397.63},
+    {"month":"Oct 2025","qty":129801,"amount":37536856.53,"diff":-376329.79},
+    {"month":"Nov 2025","qty":129591,"amount":37263717.14,"diff":-273139.39},
+    {"month":"Dec 2025","qty":126749,"amount":36788094.9,"diff":-475622.24},
+    {"month":"Jan 2026","qty":126153,"amount":36676716.79,"diff":-111378.11},
+    {"month":"Feb 2026","qty":125801,"amount":36239290.92,"diff":-437425.87},
+    {"month":"Mar 2026","qty":125821,"amount":36124497.22,"diff":-114793.7},
+    {"month":"Apr 2026","qty":133729,"amount":38301911.33,"diff":2177414.11},
+    {"month":"May 2026","qty":133038,"amount":38250742.7,"diff":-51168.63},
+    {"month":"Jun 2026","qty":132936,"amount":38165268.38,"diff":-85474.32}
+  ]},
+  {"location":"SMM-2103 Mulberry สุขุมวิท 65","months":[
+    {"month":"Jan 2025","qty":23523,"amount":2237396.1,"diff":null},
+    {"month":"Feb 2025","qty":22762,"amount":2038786.87,"diff":-198609.23},
+    {"month":"Mar 2025","qty":22864,"amount":2028834.31,"diff":-9952.56},
+    {"month":"Apr 2025","qty":18858,"amount":2201639.12,"diff":172804.81},
+    {"month":"May 2025","qty":19753,"amount":2200462.62,"diff":-1176.5},
+    {"month":"Jun 2025","qty":19752,"amount":2198001.4,"diff":-2461.22},
+    {"month":"Jul 2025","qty":19773,"amount":2203720.63,"diff":5719.23},
+    {"month":"Aug 2025","qty":19779,"amount":2257855.4,"diff":54134.77},
+    {"month":"Sep 2025","qty":19685,"amount":2215068.68,"diff":-42786.72},
+    {"month":"Oct 2025","qty":19682,"amount":2209648.67,"diff":-5420.01},
+    {"month":"Nov 2025","qty":19677,"amount":2190048.67,"diff":-19600},
+    {"month":"Dec 2025","qty":19211,"amount":1762074.48,"diff":-427974.19},
+    {"month":"Jan 2026","qty":19209,"amount":1762060.28,"diff":-14.2},
+    {"month":"Feb 2026","qty":19092,"amount":1759924.94,"diff":-2135.34},
+    {"month":"Mar 2026","qty":19030,"amount":1670309.44,"diff":-89615.5},
+    {"month":"Apr 2026","qty":7,"amount":23617.31,"diff":-1646692.13},
+    {"month":"May 2026","qty":7,"amount":23617.31,"diff":0},
+    {"month":"Jun 2026","qty":7,"amount":23617.31,"diff":0}
+  ]},
+  {"location":"SMM-2107 Mulberry Grove Condo","months":[
+    {"month":"Jan 2025","qty":16649,"amount":8470733.93,"diff":null},
+    {"month":"Feb 2025","qty":14921,"amount":7901714.58,"diff":-569019.35},
+    {"month":"Mar 2025","qty":14279,"amount":7446653.9,"diff":-455060.68},
+    {"month":"Apr 2025","qty":15426,"amount":7447211.43,"diff":557.53},
+    {"month":"May 2025","qty":13578,"amount":7093750.41,"diff":-353461.02},
+    {"month":"Jun 2025","qty":16449,"amount":7050766.3,"diff":-42984.11},
+    {"month":"Jul 2025","qty":13197,"amount":7251115.83,"diff":200349.53},
+    {"month":"Aug 2025","qty":12668,"amount":7218869.41,"diff":-32246.42},
+    {"month":"Sep 2025","qty":12568,"amount":7572557.45,"diff":353688.04},
+    {"month":"Oct 2025","qty":12609,"amount":7586624.97,"diff":14067.52},
+    {"month":"Nov 2025","qty":12286,"amount":7349696.78,"diff":-236928.19},
+    {"month":"Dec 2025","qty":14932,"amount":6610968.2,"diff":-738728.58},
+    {"month":"Jan 2026","qty":14678,"amount":6524786.46,"diff":-86181.74},
+    {"month":"Feb 2026","qty":14505,"amount":6409127.36,"diff":-115659.1},
+    {"month":"Mar 2026","qty":14584,"amount":6510608.41,"diff":101481.05},
+    {"month":"Apr 2026","qty":709,"amount":346834.83,"diff":-6163773.58},
+    {"month":"May 2026","qty":361,"amount":420575.1,"diff":73740.27},
+    {"month":"Jun 2026","qty":1341,"amount":511422.52,"diff":90847.42}
+  ]},
+  {"location":"SMM-2115 Dusit Centralpark","months":[
+    {"month":"Jan 2025","qty":47606,"amount":16771336.5,"diff":null},
+    {"month":"Feb 2025","qty":52108,"amount":8936191.36,"diff":-7835145.14},
+    {"month":"Mar 2025","qty":60213,"amount":14293687.31,"diff":5357495.95},
+    {"month":"Apr 2025","qty":52900,"amount":14148939.58,"diff":-144747.73},
+    {"month":"May 2025","qty":51712,"amount":10440730.18,"diff":-3708209.4},
+    {"month":"Jun 2025","qty":52568,"amount":7992971.62,"diff":-2447758.56},
+    {"month":"Jul 2025","qty":52320,"amount":6195198.01,"diff":-1797773.61},
+    {"month":"Aug 2025","qty":51481,"amount":5893938.77,"diff":-301259.24},
+    {"month":"Sep 2025","qty":50665,"amount":5876600.34,"diff":-17338.43},
+    {"month":"Oct 2025","qty":44150,"amount":5823934.15,"diff":-52666.19},
+    {"month":"Nov 2025","qty":43786,"amount":5636081.39,"diff":-187852.76},
+    {"month":"Dec 2025","qty":43340,"amount":4997149.69,"diff":-638931.7},
+    {"month":"Jan 2026","qty":42428,"amount":4920652.26,"diff":-76497.43},
+    {"month":"Feb 2026","qty":41025,"amount":4971523.12,"diff":50870.86},
+    {"month":"Mar 2026","qty":40479,"amount":4955817.41,"diff":-15705.71},
+    {"month":"Apr 2026","qty":322,"amount":5474,"diff":-4950343.41},
+    {"month":"May 2026","qty":2,"amount":31129.22,"diff":25655.22},
+    {"month":"Jun 2026","qty":2,"amount":31129.22,"diff":0}
+  ]},
+  {"location":"SMM-2211 Scope Langsuan","months":[
+    {"month":"Jan 2025","qty":1508,"amount":455232.98,"diff":null},
+    {"month":"Feb 2025","qty":1499,"amount":456214.92,"diff":981.94},
+    {"month":"Mar 2025","qty":1394,"amount":451785.48,"diff":-4429.44},
+    {"month":"Apr 2025","qty":1370,"amount":354700.01,"diff":-97085.47},
+    {"month":"May 2025","qty":1350,"amount":345625.01,"diff":-9075},
+    {"month":"Jun 2025","qty":1342,"amount":345262.01,"diff":-363},
+    {"month":"Jul 2025","qty":1317,"amount":340942.01,"diff":-4320},
+    {"month":"Aug 2025","qty":1300,"amount":340942.01,"diff":0},
+    {"month":"Sep 2025","qty":1290,"amount":329431.01,"diff":-11511},
+    {"month":"Oct 2025","qty":1290,"amount":329431.01,"diff":0},
+    {"month":"Nov 2025","qty":0,"amount":0,"diff":-329431.01},
+    {"month":"Dec 2025","qty":0,"amount":0,"diff":0},
+    {"month":"Jan 2026","qty":0,"amount":0,"diff":0},
+    {"month":"Feb 2026","qty":0,"amount":0,"diff":0},
+    {"month":"Mar 2026","qty":0,"amount":0,"diff":0},
+    {"month":"Apr 2026","qty":0,"amount":0,"diff":0},
+    {"month":"May 2026","qty":0,"amount":0,"diff":0},
+    {"month":"Jun 2026","qty":0,"amount":0,"diff":0}
+  ]},
+  {"location":"SMM-2213 Scope Thonglor","months":[
+    {"month":"Jan 2025","qty":15597,"amount":2969961.92,"diff":null},
+    {"month":"Feb 2025","qty":17320,"amount":2970584.64,"diff":622.72},
+    {"month":"Mar 2025","qty":15790,"amount":2854204.81,"diff":-116379.83},
+    {"month":"Apr 2025","qty":16168,"amount":3016642.19,"diff":162437.38},
+    {"month":"May 2025","qty":17158,"amount":2966958.13,"diff":-49684.06},
+    {"month":"Jun 2025","qty":17761,"amount":2852729.61,"diff":-114228.52},
+    {"month":"Jul 2025","qty":18730,"amount":2835433.45,"diff":-17296.16},
+    {"month":"Aug 2025","qty":18257,"amount":2623030.18,"diff":-212403.27},
+    {"month":"Sep 2025","qty":17942,"amount":2575004.98,"diff":-48025.2},
+    {"month":"Oct 2025","qty":15823,"amount":2557193.39,"diff":-17811.59},
+    {"month":"Nov 2025","qty":15619,"amount":2542992.64,"diff":-14200.75},
+    {"month":"Dec 2025","qty":14423,"amount":2522453,"diff":-20539.64},
+    {"month":"Jan 2026","qty":13921,"amount":2521170.25,"diff":-1282.75},
+    {"month":"Feb 2026","qty":13894,"amount":2525447.91,"diff":4277.66},
+    {"month":"Mar 2026","qty":13132,"amount":2520922.91,"diff":-4525},
+    {"month":"Apr 2026","qty":0,"amount":0,"diff":-2520922.91},
+    {"month":"May 2026","qty":0,"amount":0,"diff":0},
+    {"month":"Jun 2026","qty":0,"amount":0,"diff":0}
+  ]},
+  {"location":"SMM-2319 UOB SATHON","months":[
+    {"month":"Jan 2025","qty":32377,"amount":5470673.3,"diff":null},
+    {"month":"Feb 2025","qty":33384,"amount":5766628.01,"diff":295954.71},
+    {"month":"Mar 2025","qty":32286,"amount":5258864.5,"diff":-507763.51},
+    {"month":"Apr 2025","qty":28162,"amount":4650732.22,"diff":-608132.28},
+    {"month":"May 2025","qty":28316,"amount":4756437.06,"diff":105704.84},
+    {"month":"Jun 2025","qty":28254,"amount":4558303.63,"diff":-198133.43},
+    {"month":"Jul 2025","qty":28212,"amount":4427266.92,"diff":-131036.71},
+    {"month":"Aug 2025","qty":28188,"amount":4429087.74,"diff":1820.82},
+    {"month":"Sep 2025","qty":28021,"amount":4387943.67,"diff":-41144.07},
+    {"month":"Oct 2025","qty":27897,"amount":4378661.15,"diff":-9282.52},
+    {"month":"Nov 2025","qty":27758,"amount":4296286.66,"diff":-82374.49},
+    {"month":"Dec 2025","qty":27195,"amount":4079588.24,"diff":-216698.42},
+    {"month":"Jan 2026","qty":27182,"amount":4054913.75,"diff":-24674.49},
+    {"month":"Feb 2026","qty":26579,"amount":4038387.43,"diff":-16526.32},
+    {"month":"Mar 2026","qty":22596,"amount":2429222.01,"diff":-1609165.42},
+    {"month":"Apr 2026","qty":4,"amount":26450.8,"diff":-2402771.21},
+    {"month":"May 2026","qty":4,"amount":26450.8,"diff":0},
+    {"month":"Jun 2026","qty":4,"amount":26450.8,"diff":0}
+  ]},
+  {"location":"SMM-2408 วันเวลา ณ เจ้าพระยา","months":[
+    {"month":"Jan 2025","qty":280,"amount":95218.77,"diff":null},
+    {"month":"Feb 2025","qty":1746,"amount":320125.33,"diff":224906.56},
+    {"month":"Mar 2025","qty":77877,"amount":3869444.58,"diff":3549319.25},
+    {"month":"Apr 2025","qty":95974,"amount":5309351.57,"diff":1439906.99},
+    {"month":"May 2025","qty":139644,"amount":6003509.35,"diff":694157.78},
+    {"month":"Jun 2025","qty":241794,"amount":8039748.33,"diff":2036238.98},
+    {"month":"Jul 2025","qty":215460,"amount":10719090,"diff":2679341.67},
+    {"month":"Aug 2025","qty":221623,"amount":7887212.52,"diff":-2831877.48},
+    {"month":"Sep 2025","qty":248818,"amount":9241440.7,"diff":1354228.18},
+    {"month":"Oct 2025","qty":234348,"amount":14091096.27,"diff":4849655.57},
+    {"month":"Nov 2025","qty":188617,"amount":15912912.77,"diff":1821816.5},
+    {"month":"Dec 2025","qty":130680,"amount":10414568.24,"diff":-5498344.53},
+    {"month":"Jan 2026","qty":119989,"amount":8479724.1,"diff":-1934844.14},
+    {"month":"Feb 2026","qty":123679,"amount":10067985.6,"diff":1588261.5},
+    {"month":"Mar 2026","qty":109192,"amount":11296639.91,"diff":1228654.31},
+    {"month":"Apr 2026","qty":86121,"amount":9978277.62,"diff":-1318362.29},
+    {"month":"May 2026","qty":76954,"amount":6243698.93,"diff":-3734578.69},
+    {"month":"Jun 2026","qty":73211,"amount":5166242.17,"diff":-1077456.76}
+  ]},
+  {"location":"SMM-2412 Benchasiri Alliance Hotel","months":[
+    {"month":"Jan 2025","qty":0,"amount":0,"diff":null},
+    {"month":"Feb 2025","qty":0,"amount":0,"diff":0},
+    {"month":"Mar 2025","qty":2000,"amount":48186,"diff":48186},
+    {"month":"Apr 2025","qty":21082,"amount":4190651.52,"diff":4142465.52},
+    {"month":"May 2025","qty":72930,"amount":14945292.81,"diff":10754641.29},
+    {"month":"Jun 2025","qty":109907,"amount":18917629.78,"diff":3972336.97},
+    {"month":"Jul 2025","qty":108507,"amount":19560967.03,"diff":643337.25},
+    {"month":"Aug 2025","qty":133174,"amount":25329578.22,"diff":5768611.19},
+    {"month":"Sep 2025","qty":133037,"amount":17866646.92,"diff":-7462931.3},
+    {"month":"Oct 2025","qty":113552,"amount":12855529.21,"diff":-5011117.71},
+    {"month":"Nov 2025","qty":120634,"amount":12081644.31,"diff":-773884.9},
+    {"month":"Dec 2025","qty":96986,"amount":11959741.76,"diff":-121902.55},
+    {"month":"Jan 2026","qty":102134,"amount":10708147.76,"diff":-1251594},
+    {"month":"Feb 2026","qty":84246,"amount":8841012.4,"diff":-1867135.36},
+    {"month":"Mar 2026","qty":86300,"amount":8315693.12,"diff":-525319.28},
+    {"month":"Apr 2026","qty":76187,"amount":9064616.16,"diff":748923.04},
+    {"month":"May 2026","qty":70254,"amount":8766791.79,"diff":-297824.37},
+    {"month":"Jun 2026","qty":66649,"amount":6611038.09,"diff":-2155753.7}
+  ]},
+  {"location":"SMM-2513 THE HAPPITAT AT FORESTIAS","months":[
+    {"month":"Jan 2025","qty":0,"amount":0,"diff":null},
+    {"month":"Feb 2025","qty":0,"amount":0,"diff":0},
+    {"month":"Mar 2025","qty":0,"amount":0,"diff":0},
+    {"month":"Apr 2025","qty":361648,"amount":0,"diff":0},
+    {"month":"May 2025","qty":469646,"amount":481335.37,"diff":481335.37},
+    {"month":"Jun 2025","qty":455696,"amount":1254151.65,"diff":772816.28},
+    {"month":"Jul 2025","qty":430400,"amount":2507549.78,"diff":1253398.13},
+    {"month":"Aug 2025","qty":392682,"amount":4457970.02,"diff":1950420.24},
+    {"month":"Sep 2025","qty":363125,"amount":2715628.79,"diff":-1742341.23},
+    {"month":"Oct 2025","qty":351369,"amount":3731105.27,"diff":1015476.48},
+    {"month":"Nov 2025","qty":320511,"amount":3309056.27,"diff":-422049},
+    {"month":"Dec 2025","qty":293014,"amount":5960902.54,"diff":2651846.27},
+    {"month":"Jan 2026","qty":281718,"amount":3449646.38,"diff":-2511256.16},
+    {"month":"Feb 2026","qty":273608,"amount":3064581.43,"diff":-385064.95},
+    {"month":"Mar 2026","qty":272321,"amount":3439086.98,"diff":374505.55},
+    {"month":"Apr 2026","qty":80451,"amount":2246729.77,"diff":-1192357.21},
+    {"month":"May 2026","qty":79468,"amount":2157316.55,"diff":-89413.22},
+    {"month":"Jun 2026","qty":78778,"amount":3744186.77,"diff":1586870.22}
+  ]},
+  {"location":"Store Center","months":[
+    {"month":"Jan 2025","qty":2316951.91,"amount":76505370.76,"diff":null},
+    {"month":"Feb 2025","qty":2278127.41,"amount":76763281.98,"diff":257911.22},
+    {"month":"Mar 2025","qty":2205813.41,"amount":77538360.87,"diff":775078.89},
+    {"month":"Apr 2025","qty":2193411.41,"amount":82330656.45,"diff":4792295.58},
+    {"month":"May 2025","qty":2213207.41,"amount":89658898.41,"diff":7328241.96},
+    {"month":"Jun 2025","qty":2208924.21,"amount":93935025.71,"diff":4276127.3},
+    {"month":"Jul 2025","qty":2146197.21,"amount":71204983.81,"diff":-22730041.9},
+    {"month":"Aug 2025","qty":2250954.21,"amount":70293776.29,"diff":-911207.52},
+    {"month":"Sep 2025","qty":2252640.21,"amount":69083035.63,"diff":-1210740.66},
+    {"month":"Oct 2025","qty":2238433.71,"amount":76365081.03,"diff":7282045.4},
+    {"month":"Nov 2025","qty":2361425.71,"amount":81748620.89,"diff":5383539.86},
+    {"month":"Dec 2025","qty":2333287.71,"amount":62134048.76,"diff":-19614572.13},
+    {"month":"Jan 2026","qty":2354443.81,"amount":71723112.2,"diff":9589063.44},
+    {"month":"Feb 2026","qty":2373063.81,"amount":71223272.48,"diff":-499839.72},
+    {"month":"Mar 2026","qty":2332542.81,"amount":63579864.67,"diff":-7643407.81},
+    {"month":"Apr 2026","qty":2678147.01,"amount":84926902.17,"diff":21347037.5},
+    {"month":"May 2026","qty":2652291.01,"amount":88071117.73,"diff":3144215.56},
+    {"month":"Jun 2026","qty":2638214,"amount":81903628.72,"diff":-6167489.01}
+  ]},
+  {"location":"Store Finished Goods","months":[
+    {"month":"Jan 2025","qty":47230.69,"amount":67206.78,"diff":null},
+    {"month":"Feb 2025","qty":47992.69,"amount":65659.86,"diff":-1546.92},
+    {"month":"Mar 2025","qty":52898.69,"amount":59779.91,"diff":-5879.95},
+    {"month":"Apr 2025","qty":53605.69,"amount":68354.29,"diff":8574.38},
+    {"month":"May 2025","qty":57735.69,"amount":330405.82,"diff":262051.53},
+    {"month":"Jun 2025","qty":59044.69,"amount":60985.78,"diff":-269420.04},
+    {"month":"Jul 2025","qty":56356.69,"amount":70776.79,"diff":9791.01},
+    {"month":"Aug 2025","qty":59125.69,"amount":75994.06,"diff":5217.27},
+    {"month":"Sep 2025","qty":53716.69,"amount":1121553.45,"diff":1045559.39},
+    {"month":"Oct 2025","qty":51899.69,"amount":1116152.32,"diff":-5401.13},
+    {"month":"Nov 2025","qty":51967.69,"amount":1782908.21,"diff":666755.89},
+    {"month":"Dec 2025","qty":54849.69,"amount":635761.39,"diff":-1147146.82},
+    {"month":"Jan 2026","qty":54567.69,"amount":66721.73,"diff":-569039.66},
+    {"month":"Feb 2026","qty":52889.69,"amount":69290.43,"diff":2568.7},
+    {"month":"Mar 2026","qty":51880.69,"amount":69705.92,"diff":415.49},
+    {"month":"Apr 2026","qty":53882.69,"amount":64073.09,"diff":-5632.83},
+    {"month":"May 2026","qty":57354.69,"amount":72521.22,"diff":8448.13},
+    {"month":"Jun 2026","qty":52258.69,"amount":60177.7,"diff":-12343.52}
+  ]},
+  {"location":"Store Movement (โครงการดำเนินการอยู่)","months":[
+    {"month":"Jan 2025","qty":128035,"amount":12147979.81,"diff":null},
+    {"month":"Feb 2025","qty":160613,"amount":15380612.5,"diff":3232632.69},
+    {"month":"Mar 2025","qty":154209,"amount":13631540.31,"diff":-1749072.19},
+    {"month":"Apr 2025","qty":143630,"amount":12201440.02,"diff":-1430100.29},
+    {"month":"May 2025","qty":123126,"amount":10523255.3,"diff":-1678184.72},
+    {"month":"Jun 2025","qty":108982,"amount":10026949.53,"diff":-496305.77},
+    {"month":"Jul 2025","qty":95669,"amount":9323093.91,"diff":-703855.62},
+    {"month":"Aug 2025","qty":90316,"amount":9707607.15,"diff":384513.24},
+    {"month":"Sep 2025","qty":82245,"amount":9230093.02,"diff":-477514.13},
+    {"month":"Oct 2025","qty":94530,"amount":10017238.16,"diff":787145.14},
+    {"month":"Nov 2025","qty":98977,"amount":9924212.31,"diff":-93025.85},
+    {"month":"Dec 2025","qty":97486,"amount":8591820.46,"diff":-1332391.85},
+    {"month":"Jan 2026","qty":96675,"amount":7833973.41,"diff":-757847.05},
+    {"month":"Feb 2026","qty":98027,"amount":9185025.78,"diff":1351052.37},
+    {"month":"Mar 2026","qty":106636,"amount":9381593.31,"diff":196567.53},
+    {"month":"Apr 2026","qty":75072,"amount":10059789.28,"diff":678195.97},
+    {"month":"May 2026","qty":87335,"amount":14292919.49,"diff":4233130.21},
+    {"month":"Jun 2026","qty":94571,"amount":14202738.28,"diff":-90181.21}
+  ]},
+  {"location":"Store Production","months":[
+    {"month":"Jan 2025","qty":687601.49,"amount":37867885.23,"diff":null},
+    {"month":"Feb 2025","qty":785435.89,"amount":46240831.13,"diff":8372945.9},
+    {"month":"Mar 2025","qty":847207.39,"amount":53760253.28,"diff":7519422.15},
+    {"month":"Apr 2025","qty":934964.39,"amount":47665186.48,"diff":-6095066.8},
+    {"month":"May 2025","qty":1072103.99,"amount":55021715.04,"diff":7356528.56},
+    {"month":"Jun 2025","qty":1077517.99,"amount":55427677.66,"diff":405962.62},
+    {"month":"Jul 2025","qty":1227238.99,"amount":52940994.29,"diff":-2486683.37},
+    {"month":"Aug 2025","qty":1229404.99,"amount":57533302.29,"diff":4592308},
+    {"month":"Sep 2025","qty":1140907.99,"amount":58612551.4,"diff":1079249.11},
+    {"month":"Oct 2025","qty":1213130.99,"amount":65491817.86,"diff":6879266.46},
+    {"month":"Nov 2025","qty":1393491.99,"amount":75345041.22,"diff":9853223.36},
+    {"month":"Dec 2025","qty":1562862.99,"amount":87503926.05,"diff":12158884.83},
+    {"month":"Jan 2026","qty":1068740.99,"amount":50064692.1,"diff":-37439233.95},
+    {"month":"Feb 2026","qty":616297.99,"amount":32540799.59,"diff":-17523892.51},
+    {"month":"Mar 2026","qty":582330.99,"amount":31558518.3,"diff":-982281.29},
+    {"month":"Apr 2026","qty":533544.99,"amount":21784587.61,"diff":-9773930.69},
+    {"month":"May 2026","qty":499286.99,"amount":20831845.96,"diff":-952741.65},
+    {"month":"Jun 2026","qty":499372.99,"amount":20926160.49,"diff":94314.53}
+  ]},
+  {"location":"Store โรงพ่นสี","months":[
+    {"month":"Jan 2025","qty":36891.64,"amount":2850458.35,"diff":null},
+    {"month":"Feb 2025","qty":37548.64,"amount":1449320.68,"diff":-1401137.67},
+    {"month":"Mar 2025","qty":44974.64,"amount":2129569.54,"diff":680248.86},
+    {"month":"Apr 2025","qty":41661.64,"amount":3196311.49,"diff":1066741.95},
+    {"month":"May 2025","qty":41318.64,"amount":1841833.13,"diff":-1354478.36},
+    {"month":"Jun 2025","qty":42837.64,"amount":2645331.8,"diff":803498.67},
+    {"month":"Jul 2025","qty":45766.64,"amount":5621105.89,"diff":2975774.09},
+    {"month":"Aug 2025","qty":47403.64,"amount":3044407.92,"diff":-2576697.97},
+    {"month":"Sep 2025","qty":45531.64,"amount":4843774.75,"diff":1799366.83},
+    {"month":"Oct 2025","qty":41806.64,"amount":3096388.38,"diff":-1747386.37},
+    {"month":"Nov 2025","qty":42624.64,"amount":6595511.47,"diff":3499123.09},
+    {"month":"Dec 2025","qty":37011.64,"amount":6515701.66,"diff":-79809.81},
+    {"month":"Jan 2026","qty":30812.64,"amount":2763058.12,"diff":-3752643.54},
+    {"month":"Feb 2026","qty":24805.64,"amount":2759338.25,"diff":-3719.87},
+    {"month":"Mar 2026","qty":24331.64,"amount":2759832.99,"diff":494.74},
+    {"month":"Apr 2026","qty":23890.64,"amount":3017756.09,"diff":257923.1},
+    {"month":"May 2026","qty":25614.64,"amount":3204559.56,"diff":186803.47},
+    {"month":"Jun 2026","qty":25003.64,"amount":3106571.3,"diff":-97988.26}
+  ]}
+];
+
+// Category data (Jan 2025 – Jun 2026)
+const CAT_MONTHS = ["Jan 2025", "Feb 2025", "Mar 2025", "Apr 2025", "May 2025", "Jun 2025", "Jul 2025", "Aug 2025", "Sep 2025", "Oct 2025", "Nov 2025", "Dec 2025", "Jan 2026", "Feb 2026", "Mar 2026", "Apr 2026", "May 2026", "Jun 2026"];
+const CAT_DATA = [
+  {code:"RM.GL", name:"Glass (กระจก)", months:[
+    {m:"Jan 2025",qty:9982,amount:58161908.31},
+    {m:"Feb 2025",qty:10242,amount:57566902.58},
+    {m:"Mar 2025",qty:11528,amount:60763096.04},
+    {m:"Apr 2025",qty:11008,amount:56168390.28},
+    {m:"May 2025",qty:12555,amount:61811102.73},
+    {m:"Jun 2025",qty:14169,amount:67016957.54},
+    {m:"Jul 2025",qty:15384,amount:72153775.7},
+    {m:"Aug 2025",qty:16111,amount:74209663.38},
+    {m:"Sep 2025",qty:16960,amount:76460650.14},
+    {m:"Oct 2025",qty:19290,amount:83723758.01},
+    {m:"Nov 2025",qty:23013,amount:91741795.81},
+    {m:"Dec 2025",qty:25362,amount:99258393.79},
+    {m:"Jan 2026",qty:25514,amount:63121246.42},
+    {m:"Feb 2026",qty:28962,amount:55756757.06},
+    {m:"Mar 2026",qty:12107,amount:54173191.21},
+    {m:"Apr 2026",qty:11271,amount:48859850.51},
+    {m:"May 2026",qty:10640,amount:47650143.33},
+    {m:"Jun 2026",qty:10303,amount:44526956.28}
+  ]},
+  {code:"RM.AL", name:"Aluminium Extrusion (อลูมิเนียมเส้น)", months:[
+    {m:"Jan 2025",qty:79792.64,amount:60652984.76},
+    {m:"Feb 2025",qty:77340.64,amount:58784098.13},
+    {m:"Mar 2025",qty:73864.64,amount:58268412.47},
+    {m:"Apr 2025",qty:78630.64,amount:62401903.97},
+    {m:"May 2025",qty:80265.64,amount:65657687.07},
+    {m:"Jun 2025",qty:81018.64,amount:63613424.99},
+    {m:"Jul 2025",qty:82240.64,amount:68458526.42},
+    {m:"Aug 2025",qty:74891.64,amount:64710832.82},
+    {m:"Sep 2025",qty:74529.64,amount:62012020.11},
+    {m:"Oct 2025",qty:73689.64,amount:61257592.25},
+    {m:"Nov 2025",qty:82157.64,amount:65655475.19},
+    {m:"Dec 2025",qty:72398.64,amount:60817833.43},
+    {m:"Jan 2026",qty:69725.64,amount:57338005.2},
+    {m:"Feb 2026",qty:66725.64,amount:54531424.7},
+    {m:"Mar 2026",qty:61826.64,amount:49975213.63},
+    {m:"Apr 2026",qty:63450.64,amount:51159855.55},
+    {m:"May 2026",qty:64983.64,amount:51120982.03},
+    {m:"Jun 2026",qty:62913.6,amount:50082836}
+  ]},
+  {code:"RM.HA", name:"Parts and Accessories (อะไหล่และอุปกรณ์ในการติดตั้ง)", months:[
+    {m:"Jan 2025",qty:1366744.7,amount:41278461.74},
+    {m:"Feb 2025",qty:1409289.7,amount:44198025.9},
+    {m:"Mar 2025",qty:1417534.5,amount:47943022.72},
+    {m:"Apr 2025",qty:1450045.5,amount:50979706.28},
+    {m:"May 2025",qty:1576877.5,amount:52047931.08},
+    {m:"Jun 2025",qty:1555158.8,amount:47571373.36},
+    {m:"Jul 2025",qty:1571096.8,amount:47647659.03},
+    {m:"Aug 2025",qty:1626972.8,amount:48390553.37},
+    {m:"Sep 2025",qty:1631970.8,amount:48688804.16},
+    {m:"Oct 2025",qty:1626346.8,amount:52467974.04},
+    {m:"Nov 2025",qty:1655109.8,amount:54643224.61},
+    {m:"Dec 2025",qty:1674541.8,amount:54850567.94},
+    {m:"Jan 2026",qty:1372465.8,amount:40396890.02},
+    {m:"Feb 2026",qty:1309169.8,amount:39932194.67},
+    {m:"Mar 2026",qty:1283281.1,amount:39651100.91},
+    {m:"Apr 2026",qty:1264655,amount:37493067.73},
+    {m:"May 2026",qty:1255455,amount:36243769.13},
+    {m:"Jun 2026",qty:1250752,amount:35956061}
+  ]},
+  {code:"RM.AS", name:"Aluminium Sheet (อลูมิเนียมแผ่นเรียบ)", months:[
+    {m:"Jan 2025",qty:7593,amount:20228954.88},
+    {m:"Feb 2025",qty:8572,amount:22332545.77},
+    {m:"Mar 2025",qty:8986,amount:23096476.5},
+    {m:"Apr 2025",qty:9098,amount:23960605.81},
+    {m:"May 2025",qty:10088,amount:29578429.77},
+    {m:"Jun 2025",qty:10188,amount:29891873.35},
+    {m:"Jul 2025",qty:8143,amount:24915938.97},
+    {m:"Aug 2025",qty:8865,amount:29072511.06},
+    {m:"Sep 2025",qty:8313,amount:26727579.86},
+    {m:"Oct 2025",qty:7777,amount:23492516.6},
+    {m:"Nov 2025",qty:7319,amount:21853344.45},
+    {m:"Dec 2025",qty:7450,amount:21824488.06},
+    {m:"Jan 2026",qty:6053,amount:18482215.63},
+    {m:"Feb 2026",qty:5413,amount:15671797.95},
+    {m:"Mar 2026",qty:5216,amount:15188784.68},
+    {m:"Apr 2026",qty:3801,amount:11016765.59},
+    {m:"May 2026",qty:3792,amount:11156846.23},
+    {m:"Jun 2026",qty:3914,amount:11350535}
+  ]},
+  {code:"RM.HC", name:"วัสดุสิ้นเปลืองสำหรับการผลิต", months:[
+    {m:"Jan 2025",qty:2090491.64,amount:8027564.18},
+    {m:"Feb 2025",qty:2109459.64,amount:7953244.13},
+    {m:"Mar 2025",qty:2236207.04,amount:9030489.85},
+    {m:"Apr 2025",qty:2265320.04,amount:8902778.85},
+    {m:"May 2025",qty:2333189,amount:9128938.21},
+    {m:"Jun 2025",qty:2406482,amount:9523327.43},
+    {m:"Jul 2025",qty:2446381,amount:9239694.16},
+    {m:"Aug 2025",qty:2543174,amount:9816632.04},
+    {m:"Sep 2025",qty:2508242,amount:10099727.15},
+    {m:"Oct 2025",qty:2600496,amount:10534127.06},
+    {m:"Nov 2025",qty:2762573,amount:11297135.75},
+    {m:"Dec 2025",qty:2875604,amount:11225583.68},
+    {m:"Jan 2026",qty:2335198,amount:5497295.76},
+    {m:"Feb 2026",qty:1965483,amount:5042022.4},
+    {m:"Mar 2026",qty:1967040,amount:4929227.89},
+    {m:"Apr 2026",qty:1929075,amount:5026312.69},
+    {m:"May 2026",qty:1891448,amount:5067541.48},
+    {m:"Jun 2026",qty:1910796,amount:5064532}
+  ]},
+  {code:"RN.HW", name:"วัสดุสิ้นเปลืองใช้ไป", months:[
+    {m:"Jan 2025",qty:65691.6,amount:9342701.85},
+    {m:"Feb 2025",qty:71510.6,amount:9625200.94},
+    {m:"Mar 2025",qty:81326.6,amount:10143199.91},
+    {m:"Apr 2025",qty:86705.6,amount:10763063.89},
+    {m:"May 2025",qty:92769,amount:11395487.48},
+    {m:"Jun 2025",qty:98764,amount:11418491.34},
+    {m:"Jul 2025",qty:104018,amount:11747968.33},
+    {m:"Aug 2025",qty:117582,amount:13695905.08},
+    {m:"Sep 2025",qty:123500,amount:14351580.28},
+    {m:"Oct 2025",qty:134753,amount:15313211.69},
+    {m:"Nov 2025",qty:138922,amount:15906780.5},
+    {m:"Dec 2025",qty:127095,amount:9808908.54},
+    {m:"Jan 2026",qty:52172,amount:5273036.08},
+    {m:"Feb 2026",qty:39454,amount:4824040.41},
+    {m:"Mar 2026",qty:37073,amount:4737929.58},
+    {m:"Apr 2026",qty:37503,amount:5095013},
+    {m:"May 2026",qty:35697,amount:5169477.54},
+    {m:"Jun 2026",qty:33682,amount:4915158}
+  ]},
+  {code:"RM.ST", name:"Steel (เหล็ก)", months:[
+    {m:"Jan 2025",qty:8507,amount:7895983.45},
+    {m:"Feb 2025",qty:7657,amount:8088085.11},
+    {m:"Mar 2025",qty:8497,amount:8970117.61},
+    {m:"Apr 2025",qty:7620,amount:8540823.24},
+    {m:"May 2025",qty:8273,amount:9212220.85},
+    {m:"Jun 2025",qty:7737,amount:8673234.75},
+    {m:"Jul 2025",qty:7722,amount:8333086.52},
+    {m:"Aug 2025",qty:8104,amount:9130286.36},
+    {m:"Sep 2025",qty:7826,amount:8848457.86},
+    {m:"Oct 2025",qty:8294,amount:9110396.26},
+    {m:"Nov 2025",qty:7618,amount:8548496.55},
+    {m:"Dec 2025",qty:8013,amount:8903050.55},
+    {m:"Jan 2026",qty:5936,amount:6501793.26},
+    {m:"Feb 2026",qty:5262,amount:5977776.6},
+    {m:"Mar 2026",qty:4750,amount:5280119.16},
+    {m:"Apr 2026",qty:4976,amount:5389810.58},
+    {m:"May 2026",qty:4638,amount:4721771.66},
+    {m:"Jun 2026",qty:4627,amount:4665691}
+  ]},
+  {code:"RM.MO", name:"อลูมิเนียมเส้น(ระหว่างผลิต)", months:[
+    {m:"Jan 2025",qty:12227,amount:2172633.81},
+    {m:"Feb 2025",qty:11636,amount:2047085.23},
+    {m:"Mar 2025",qty:11988,amount:2130206.85},
+    {m:"Apr 2025",qty:13972,amount:2289839.11},
+    {m:"May 2025",qty:13280,amount:2317088.26},
+    {m:"Jun 2025",qty:12822,amount:2317959.58},
+    {m:"Jul 2025",qty:11723,amount:2049392.04},
+    {m:"Aug 2025",qty:12548,amount:2469458.21},
+    {m:"Sep 2025",qty:10809,amount:2505859.39},
+    {m:"Oct 2025",qty:10740,amount:2593533.05},
+    {m:"Nov 2025",qty:11138,amount:2823886.65},
+    {m:"Dec 2025",qty:11161,amount:2881332.65},
+    {m:"Jan 2026",qty:392,amount:0},
+    {m:"Feb 2026",qty:377,amount:0},
+    {m:"Mar 2026",qty:397,amount:0},
+    {m:"Apr 2026",qty:14,amount:0},
+    {m:"May 2026",qty:12,amount:0},
+    {m:"Jun 2026",qty:9643,amount:4156349}
+  ]},
+  {code:"PT.AL", name:"อลูมิเนียมเส้น พ่นสี", months:[
+    {m:"Jan 2025",qty:228627,amount:4197960.26},
+    {m:"Feb 2025",qty:238182,amount:4189163.46},
+    {m:"Mar 2025",qty:249093,amount:4180831.77},
+    {m:"Apr 2025",qty:252221,amount:4084205.93},
+    {m:"May 2025",qty:262783,amount:4036631.04},
+    {m:"Jun 2025",qty:267173,amount:4022225.84},
+    {m:"Jul 2025",qty:272714,amount:4022225.84},
+    {m:"Aug 2025",qty:285583,amount:3954251.14},
+    {m:"Sep 2025",qty:292470,amount:3951088.68},
+    {m:"Oct 2025",qty:303715,amount:3919175.49},
+    {m:"Nov 2025",qty:307786,amount:3918168.22},
+    {m:"Dec 2025",qty:317656,amount:3917030.24},
+    {m:"Jan 2026",qty:81714,amount:3886627.97},
+    {m:"Feb 2026",qty:76205,amount:3881327.93},
+    {m:"Mar 2026",qty:77314,amount:3876646.96},
+    {m:"Apr 2026",qty:50014,amount:3816201.1},
+    {m:"May 2026",qty:46198,amount:3673207.28},
+    {m:"Jun 2026",qty:43553,amount:3469461}
+  ]},
+  {code:"RM.AC", name:"Aluminium Composite (อลูมิเนียมแผ่น Composite)", months:[
+    {m:"Jan 2025",qty:1555,amount:5756250.3},
+    {m:"Feb 2025",qty:1001,amount:2808714.8},
+    {m:"Mar 2025",qty:1310,amount:5261983.6},
+    {m:"Apr 2025",qty:1248,amount:5203683.94},
+    {m:"May 2025",qty:1528,amount:6690944.4},
+    {m:"Jun 2025",qty:1323,amount:5126513.13},
+    {m:"Jul 2025",qty:1136,amount:5116336.88},
+    {m:"Aug 2025",qty:1152,amount:5165615.12},
+    {m:"Sep 2025",qty:1118,amount:5100581.12},
+    {m:"Oct 2025",qty:1132,amount:5126960.57},
+    {m:"Nov 2025",qty:1112,amount:4933221.4},
+    {m:"Dec 2025",qty:1254,amount:5392099.6},
+    {m:"Jan 2026",qty:794,amount:3321905},
+    {m:"Feb 2026",qty:1000,amount:3982918.67},
+    {m:"Mar 2026",qty:1452,amount:4943500.34},
+    {m:"Apr 2026",qty:693,amount:2626134.34},
+    {m:"May 2026",qty:657,amount:2859814.62},
+    {m:"Jun 2026",qty:620,amount:2659544}
+  ]},
+  {code:"RM.HP", name:"สีผงพ่นอลูมิเนียม", months:[
+    {m:"Jan 2025",qty:2715,amount:694300},
+    {m:"Feb 2025",qty:2715,amount:694300},
+    {m:"Mar 2025",qty:7539,amount:1979748},
+    {m:"Apr 2025",qty:9899,amount:2506048},
+    {m:"May 2025",qty:12119,amount:3026848},
+    {m:"Jun 2025",qty:13809,amount:3480448},
+    {m:"Jul 2025",qty:14589,amount:3668548},
+    {m:"Aug 2025",qty:17668,amount:4472048},
+    {m:"Sep 2025",qty:18468,amount:4682048},
+    {m:"Oct 2025",qty:20703,amount:5236438},
+    {m:"Nov 2025",qty:23996,amount:6043148},
+    {m:"Dec 2025",qty:4091,amount:1043060},
+    {m:"Jan 2026",qty:4062,amount:1033160},
+    {m:"Feb 2026",qty:4262,amount:1081960},
+    {m:"Mar 2026",qty:5302,amount:1279200},
+    {m:"Apr 2026",qty:8615,amount:2252060},
+    {m:"May 2026",qty:9795,amount:2569220},
+    {m:"Jun 2026",qty:9335,amount:2433220}
+  ]},
+  {code:"RN.PD", name:"วัสดุสิ้นเปลืองใช้ไปอื่นๆ (สำหรับผลิต)", months:[
+    {m:"Jan 2025",qty:3607,amount:977228.57},
+    {m:"Feb 2025",qty:4208,amount:1203823.57},
+    {m:"Mar 2025",qty:4696,amount:1286572.09},
+    {m:"Apr 2025",qty:4905,amount:1374812.04},
+    {m:"May 2025",qty:4852,amount:1382665.06},
+    {m:"Jun 2025",qty:5231,amount:1419396.07},
+    {m:"Jul 2025",qty:5940,amount:1517991.9},
+    {m:"Aug 2025",qty:6197,amount:1608470.84},
+    {m:"Sep 2025",qty:7188,amount:1797193.01},
+    {m:"Oct 2025",qty:7546,amount:1942263.96},
+    {m:"Nov 2025",qty:8056,amount:2063042},
+    {m:"Dec 2025",qty:8916,amount:2192858},
+    {m:"Jan 2026",qty:5672,amount:2119936.72},
+    {m:"Feb 2026",qty:4579,amount:1921212.69},
+    {m:"Mar 2026",qty:5811,amount:2135019.53},
+    {m:"Apr 2026",qty:4832,amount:2132569.13},
+    {m:"May 2026",qty:5039,amount:2222368.67},
+    {m:"Jun 2026",qty:4974,amount:2287156}
+  ]},
+  {code:"RM.HS", name:"วัสดุยาแนว", months:[
+    {m:"Jan 2025",qty:15683,amount:3525076.92},
+    {m:"Feb 2025",qty:17494,amount:3500680.2},
+    {m:"Mar 2025",qty:19616,amount:3853140.78},
+    {m:"Apr 2025",qty:22242,amount:4477685.45},
+    {m:"May 2025",qty:26862,amount:5886108.32},
+    {m:"Jun 2025",qty:26720,amount:6307885.1},
+    {m:"Jul 2025",qty:30958,amount:7166810.1},
+    {m:"Aug 2025",qty:36390,amount:8893280.61},
+    {m:"Sep 2025",qty:40057,amount:9857201.16},
+    {m:"Oct 2025",qty:48547,amount:12057636.02},
+    {m:"Nov 2025",qty:50676,amount:13205868.71},
+    {m:"Dec 2025",qty:60063,amount:16695366.33},
+    {m:"Jan 2026",qty:9693,amount:5104937.8},
+    {m:"Feb 2026",qty:7467,amount:2599361.46},
+    {m:"Mar 2026",qty:6649,amount:1436013.77},
+    {m:"Apr 2026",qty:4934,amount:1803282.84},
+    {m:"May 2026",qty:6174,amount:1282053.96},
+    {m:"Jun 2026",qty:5470,amount:1713243}
+  ]},
+  {code:"RM.SS", name:"Stainless Steel (สแตนเลส)", months:[
+    {m:"Jan 2025",qty:344,amount:1143786.12},
+    {m:"Feb 2025",qty:346,amount:1144986.12},
+    {m:"Mar 2025",qty:348,amount:1159486.12},
+    {m:"Apr 2025",qty:348,amount:1159486.12},
+    {m:"May 2025",qty:354,amount:1186486.12},
+    {m:"Jun 2025",qty:1255,amount:1888046.12},
+    {m:"Jul 2025",qty:1253,amount:1867896.12},
+    {m:"Aug 2025",qty:1258,amount:1925396.12},
+    {m:"Sep 2025",qty:1252,amount:1898396.12},
+    {m:"Oct 2025",qty:1254,amount:1803396.12},
+    {m:"Nov 2025",qty:1277,amount:1827546.12},
+    {m:"Dec 2025",qty:1277,amount:1827546.12},
+    {m:"Jan 2026",qty:367,amount:1091636.12},
+    {m:"Feb 2026",qty:361,amount:995736.12},
+    {m:"Mar 2026",qty:338,amount:971586.12},
+    {m:"Apr 2026",qty:338,amount:971586.12},
+    {m:"May 2026",qty:338,amount:971586.12},
+    {m:"Jun 2026",qty:338,amount:971586}
+  ]},
+  {code:"RM.MC", name:"Miscellaneous Material (วัตถุดิบอื่นๆ)", months:[
+    {m:"Jan 2025",qty:0,amount:0},
+    {m:"Feb 2025",qty:0,amount:0},
+    {m:"Mar 2025",qty:0,amount:0},
+    {m:"Apr 2025",qty:361648,amount:0},
+    {m:"May 2025",qty:511469,amount:0},
+    {m:"Jun 2025",qty:529433,amount:93769.2},
+    {m:"Jul 2025",qty:532044,amount:1218510.4},
+    {m:"Aug 2025",qty:540053,amount:3456459.72},
+    {m:"Sep 2025",qty:535536,amount:2967802.78},
+    {m:"Oct 2025",qty:522281,amount:3170494.61},
+    {m:"Nov 2025",qty:521404,amount:2941551.82},
+    {m:"Dec 2025",qty:520282,amount:3002089.88},
+    {m:"Jan 2026",qty:279626,amount:1478198.78},
+    {m:"Feb 2026",qty:271729,amount:631170.34},
+    {m:"Mar 2026",qty:270289,amount:580569.15},
+    {m:"Apr 2026",qty:268325,amount:531406.56},
+    {m:"May 2026",qty:265131,amount:531406.56},
+    {m:"Jun 2026",qty:259998,amount:531407}
+  ]},
+  {code:"RM.SP", name:"แผ่นฝ้า", months:[
+    {m:"Jan 2025",qty:509,amount:163902.52},
+    {m:"Feb 2025",qty:531,amount:182360.52},
+    {m:"Mar 2025",qty:511,amount:178200.79},
+    {m:"Apr 2025",qty:547,amount:189934.92},
+    {m:"May 2025",qty:547,amount:189934.92},
+    {m:"Jun 2025",qty:547,amount:189934.92},
+    {m:"Jul 2025",qty:519,amount:166262.92},
+    {m:"Aug 2025",qty:679,amount:173746.12},
+    {m:"Sep 2025",qty:679,amount:173746.12},
+    {m:"Oct 2025",qty:679,amount:173746.12},
+    {m:"Nov 2025",qty:679,amount:173746.12},
+    {m:"Dec 2025",qty:570,amount:181802.92},
+    {m:"Jan 2026",qty:550,amount:177062.92},
+    {m:"Feb 2026",qty:481,amount:164002.92},
+    {m:"Mar 2026",qty:485,amount:170462.92},
+    {m:"Apr 2026",qty:484,amount:167162.92},
+    {m:"May 2026",qty:481,amount:166538.96},
+    {m:"Jun 2026",qty:477,amount:165960}
+  ]},
+  {code:"RM.AF", name:"อลูมิเนียมแผ่นฉลุลาย", months:[
+    {m:"Jan 2025",qty:13,amount:48077.78},
+    {m:"Feb 2025",qty:13,amount:48077.78},
+    {m:"Mar 2025",qty:13,amount:48077.78},
+    {m:"Apr 2025",qty:13,amount:48077.78},
+    {m:"May 2025",qty:13,amount:48077.78},
+    {m:"Jun 2025",qty:13,amount:48077.78},
+    {m:"Jul 2025",qty:13,amount:48077.78},
+    {m:"Aug 2025",qty:13,amount:48077.78},
+    {m:"Sep 2025",qty:13,amount:48077.78},
+    {m:"Oct 2025",qty:13,amount:48077.78},
+    {m:"Nov 2025",qty:13,amount:48077.78},
+    {m:"Dec 2025",qty:13,amount:48077.78},
+    {m:"Jan 2026",qty:13,amount:48077.78},
+    {m:"Feb 2026",qty:13,amount:48077.78},
+    {m:"Mar 2026",qty:13,amount:48077.78},
+    {m:"Apr 2026",qty:13,amount:48077.78},
+    {m:"May 2026",qty:13,amount:48077.78},
+    {m:"Jun 2026",qty:13,amount:48078}
+  ]},
+  {code:"FG", name:"สินค้าสำเร็จ", months:[
+    {m:"Jan 2025",qty:0,amount:0},
+    {m:"Feb 2025",qty:0,amount:0},
+    {m:"Mar 2025",qty:0,amount:0},
+    {m:"Apr 2025",qty:0,amount:0},
+    {m:"May 2025",qty:0,amount:0},
+    {m:"Jun 2025",qty:0,amount:0},
+    {m:"Jul 2025",qty:0,amount:0},
+    {m:"Aug 2025",qty:0,amount:0},
+    {m:"Sep 2025",qty:0,amount:0},
+    {m:"Oct 2025",qty:0,amount:0},
+    {m:"Nov 2025",qty:0,amount:0},
+    {m:"Dec 2025",qty:0,amount:0},
+    {m:"Jan 2026",qty:54137,amount:0},
+    {m:"Feb 2026",qty:51950,amount:0},
+    {m:"Mar 2026",qty:51388,amount:0},
+    {m:"Apr 2026",qty:46006,amount:0},
+    {m:"May 2026",qty:49071,amount:0},
+    {m:"Jun 2026",qty:45383,amount:0}
+  ]},
+  {code:"PT.AS", name:"อลูมิเนียมแผ่น พ่นสี", months:[
+    {m:"Jan 2025",qty:143090.69,amount:0},
+    {m:"Feb 2025",qty:146922.69,amount:0},
+    {m:"Mar 2025",qty:153948.69,amount:0},
+    {m:"Apr 2025",qty:155032.69,amount:0},
+    {m:"May 2025",qty:159647.69,amount:0},
+    {m:"Jun 2025",qty:168845.69,amount:0},
+    {m:"Jul 2025",qty:173715.69,amount:0},
+    {m:"Aug 2025",qty:178643.69,amount:0},
+    {m:"Sep 2025",qty:185908.69,amount:0},
+    {m:"Oct 2025",qty:193596.69,amount:0},
+    {m:"Nov 2025",qty:198273.69,amount:0},
+    {m:"Dec 2025",qty:202830.69,amount:0},
+    {m:"Jan 2026",qty:32813.69,amount:0},
+    {m:"Feb 2026",qty:33112.69,amount:0},
+    {m:"Mar 2026",qty:32891.69,amount:0},
+    {m:"Apr 2026",qty:32384.69,amount:0},
+    {m:"May 2026",qty:4021.69,amount:0},
+    {m:"Jun 2026",qty:4206.7,amount:0}
+  ]},
+  {code:"PT.ST", name:"เหล็ก พ่นสี", months:[
+    {m:"Jan 2025",qty:205,amount:0},
+    {m:"Feb 2025",qty:205,amount:0},
+    {m:"Mar 2025",qty:205,amount:0},
+    {m:"Apr 2025",qty:233,amount:0},
+    {m:"May 2025",qty:273,amount:0},
+    {m:"Jun 2025",qty:353,amount:0},
+    {m:"Jul 2025",qty:428,amount:0},
+    {m:"Aug 2025",qty:683,amount:0},
+    {m:"Sep 2025",qty:925,amount:0},
+    {m:"Oct 2025",qty:1206,amount:0},
+    {m:"Nov 2025",qty:1563,amount:0},
+    {m:"Dec 2025",qty:1672,amount:0},
+    {m:"Jan 2026",qty:25,amount:0},
+    {m:"Feb 2026",qty:25,amount:0},
+    {m:"Mar 2026",qty:25,amount:0},
+    {m:"Apr 2026",qty:25,amount:0},
+    {m:"May 2026",qty:64,amount:0},
+    {m:"Jun 2026",qty:48,amount:0}
+  ]},
+  {code:"PT.HW", name:"อะไหล่ พ่นสี", months:[
+    {m:"Jan 2025",qty:12092,amount:0},
+    {m:"Feb 2025",qty:12092,amount:0},
+    {m:"Mar 2025",qty:12092,amount:0},
+    {m:"Apr 2025",qty:12092,amount:0},
+    {m:"May 2025",qty:12092,amount:0},
+    {m:"Jun 2025",qty:12092,amount:0},
+    {m:"Jul 2025",qty:12092,amount:0},
+    {m:"Aug 2025",qty:12092,amount:0},
+    {m:"Sep 2025",qty:12092,amount:0},
+    {m:"Oct 2025",qty:12092,amount:0},
+    {m:"Nov 2025",qty:12092,amount:0},
+    {m:"Dec 2025",qty:12092,amount:0},
+    {m:"Jan 2026",qty:12092,amount:0},
+    {m:"Feb 2026",qty:12092,amount:0},
+    {m:"Mar 2026",qty:12092,amount:0},
+    {m:"Apr 2026",qty:52,amount:0},
+    {m:"May 2026",qty:52,amount:0},
+    {m:"Jun 2026",qty:52,amount:0}
+  ]},
+  {code:"สินค้าแปรรูป", name:"สินค้าแปรรูป", months:[
+    {m:"Jan 2025",qty:0,amount:0},
+    {m:"Feb 2025",qty:0,amount:0},
+    {m:"Mar 2025",qty:0,amount:0},
+    {m:"Apr 2025",qty:0,amount:0},
+    {m:"May 2025",qty:0,amount:0},
+    {m:"Jun 2025",qty:0,amount:0},
+    {m:"Jul 2025",qty:0,amount:0},
+    {m:"Aug 2025",qty:0,amount:0},
+    {m:"Sep 2025",qty:0,amount:0},
+    {m:"Oct 2025",qty:0,amount:0},
+    {m:"Nov 2025",qty:0,amount:0},
+    {m:"Dec 2025",qty:0,amount:0},
+    {m:"Jan 2026",qty:9978,amount:2429652.71},
+    {m:"Feb 2026",qty:9607,amount:2362488.53},
+    {m:"Mar 2026",qty:9604,amount:2360929.67},
+    {m:"Apr 2026",qty:9578,amount:2360178.21},
+    {m:"May 2026",qty:9569,amount:2352975.64},
+    {m:"Jun 2026",qty:0,amount:0}
+  ]},
+  {code:"PD.AL", name:"PD.AL", months:[
+    {m:"Jan 2025",qty:1824,amount:0},
+    {m:"Feb 2025",qty:1824,amount:0},
+    {m:"Mar 2025",qty:2513,amount:0},
+    {m:"Apr 2025",qty:1853,amount:0},
+    {m:"May 2025",qty:1835,amount:0},
+    {m:"Jun 2025",qty:1850,amount:0},
+    {m:"Jul 2025",qty:1873,amount:0},
+    {m:"Aug 2025",qty:1908,amount:0},
+    {m:"Sep 2025",qty:1952,amount:0},
+    {m:"Oct 2025",qty:1908,amount:0},
+    {m:"Nov 2025",qty:1892,amount:0},
+    {m:"Dec 2025",qty:2100,amount:0},
+    {m:"Jan 2026",qty:0,amount:0},
+    {m:"Feb 2026",qty:0,amount:0},
+    {m:"Mar 2026",qty:0,amount:0},
+    {m:"Apr 2026",qty:0,amount:0},
+    {m:"May 2026",qty:0,amount:0},
+    {m:"Jun 2026",qty:0,amount:0}
+  ]},
+  {code:"PD.AS", name:"PD.AS", months:[
+    {m:"Jan 2025",qty:3329,amount:0},
+    {m:"Feb 2025",qty:4677,amount:0},
+    {m:"Mar 2025",qty:4991,amount:0},
+    {m:"Apr 2025",qty:5145,amount:0},
+    {m:"May 2025",qty:4854,amount:0},
+    {m:"Jun 2025",qty:5235,amount:0},
+    {m:"Jul 2025",qty:5186,amount:0},
+    {m:"Aug 2025",qty:5271,amount:0},
+    {m:"Sep 2025",qty:8285,amount:0},
+    {m:"Oct 2025",qty:6547,amount:0},
+    {m:"Nov 2025",qty:7123,amount:0},
+    {m:"Dec 2025",qty:6622,amount:0},
+    {m:"Jan 2026",qty:0,amount:0},
+    {m:"Feb 2026",qty:0,amount:0},
+    {m:"Mar 2026",qty:0,amount:0},
+    {m:"Apr 2026",qty:0,amount:0},
+    {m:"May 2026",qty:0,amount:0},
+    {m:"Jun 2026",qty:0,amount:0}
+  ]},
+  {code:"PD.ST", name:"PD.ST", months:[
+    {m:"Jan 2025",qty:9,amount:0},
+    {m:"Feb 2025",qty:9,amount:0},
+    {m:"Mar 2025",qty:9,amount:0},
+    {m:"Apr 2025",qty:9,amount:0},
+    {m:"May 2025",qty:9,amount:0},
+    {m:"Jun 2025",qty:9,amount:0},
+    {m:"Jul 2025",qty:9,amount:0},
+    {m:"Aug 2025",qty:9,amount:0},
+    {m:"Sep 2025",qty:9,amount:0},
+    {m:"Oct 2025",qty:9,amount:0},
+    {m:"Nov 2025",qty:9,amount:0},
+    {m:"Dec 2025",qty:9,amount:0},
+    {m:"Jan 2026",qty:0,amount:0},
+    {m:"Feb 2026",qty:0,amount:0},
+    {m:"Mar 2026",qty:0,amount:0},
+    {m:"Apr 2026",qty:0,amount:0},
+    {m:"May 2026",qty:0,amount:0},
+    {m:"Jun 2026",qty:0,amount:0}
+  ]}
+];
+
+// ========== STATE ==========
+let selectedYear = null; // null = ทั้งหมด | '2025' | '2026'
+function getVisibleMonths() {
+  if (!selectedYear) return MONTHS;
+  return MONTHS.filter(m => m.endsWith(selectedYear));
+}
+let activeLocMonth = MONTHS[MONTHS.length-1];
+let activeCatMonth = CAT_MONTHS[CAT_MONTHS.length-1];
+let activeLocations = new Set(LOC_DATA.slice(0,4).map(d=>d.location));
+let locChart = null, catLineChart = null, catBarChart = null;
+let currentMainTab = 'loc';
+
+// ========== HELPERS ==========
+const fmt = (n, compact=true) => {
+  if (n==null) return '—';
+  if (compact && Math.abs(n)>=1e6) return (n/1e6).toFixed(2)+'M';
+  if (compact && Math.abs(n)>=1e3) return (n/1e3).toFixed(1)+'K';
+  return n.toLocaleString('th-TH',{maximumFractionDigits:0});
+};
+const fmtFull = n => n==null?'—':n.toLocaleString('th-TH',{maximumFractionDigits:2});
+const fmtDiff = d => { if(d==null) return ''; const s=d>0?'+':''; return s+fmt(d); };
+const getMonthData = (loc,month) => loc.months.find(m=>m.month===month)||{qty:0,amount:0,diff:null};
+const getCatMonthData = (cat,month) => cat.months.find(m=>m.m===month)||{qty:0,amount:0};
+
+// ========== MAIN TAB SWITCH ==========
+function switchMainTab(tab) {
+  currentMainTab = tab;
+  document.querySelectorAll('.main-tab').forEach((t,i) => t.classList.toggle('active', (i===0&&tab==='loc')||(i===1&&tab==='cat')||(i===2&&tab==='pivot')));
+  document.getElementById('tab-loc').classList.toggle('active', tab==='loc');
+  document.getElementById('tab-cat').classList.toggle('active', tab==='cat');
+  document.getElementById('tab-pivot').classList.toggle('active', tab==='pivot');
+  if (tab==='cat') renderCatCharts();
+  if (tab==='pivot') renderPivot();
+}
+
+// ========== CARD FILTER STATE ==========
+let cardFilter = null; // null | 'all' | 'up' | 'down' | 'flat' | 'diff'
+
+function setCardFilter(type) {
+  cardFilter = (cardFilter === type) ? null : type; // toggle off if same
+  renderCards();
+  renderLocTable();
+  renderLocChips();
+  renderLocChart();
+  // Switch to Location tab if not already there
+  if (currentMainTab !== 'loc') switchMainTab('loc');
+  // Show/hide filter bar
+  const bar = document.getElementById('filterBar');
+  if (cardFilter) {
+    const labels = {all:'ทุกคลัง', up:'คลังที่มูลค่าเพิ่มขึ้น', down:'คลังที่มูลค่าลดลง', flat:'คลังที่ไม่เปลี่ยนแปลง', diff:'เรียงตาม Diff'};
+    document.getElementById('filterBarText').textContent = '🔍 กำลังแสดงเฉพาะ: ' + labels[cardFilter];
+    bar.classList.add('show');
+  } else {
+    bar.classList.remove('show');
+  }
+}
+
+function setYear(year) {
+  selectedYear = year;
+  document.querySelectorAll('.year-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.year === (year || 'all'));
+  });
+  const vm = getVisibleMonths();
+  activeLocMonth = vm[vm.length-1];
+  activeCatMonth = vm[vm.length-1];
+  pvState.months = new Set(vm);
+  // Rebuild overview charts with fresh instances
+  if(amtChart){amtChart.destroy();amtChart=null;}
+  if(qtyChart){qtyChart.destroy();qtyChart=null;}
+  renderOverviewCharts();
+  renderCards();
+  renderLocMonthTabs();
+  renderLocTable();
+  renderLocChips();
+  renderLocChart();
+  renderCatMonthTabs();
+  if (currentMainTab==='cat') { renderCatCharts(); renderCatTable(); }
+  if (currentMainTab==='pivot') { initPivotToolbar(); renderPivot(); }
+}
+function clearCardFilter() { cardFilter = null; renderCards(); renderLocTable(); renderLocChips(); renderLocChart(); document.getElementById('filterBar').classList.remove('show'); }
+
+// Get filtered location list based on active card
+function getFilteredLocs() {
+  const lm = activeLocMonth;
+  if (!cardFilter || cardFilter === 'all') return LOC_DATA;
+  if (cardFilter === 'up') return LOC_DATA.filter(d => (getMonthData(d,lm).diff||0) > 0);
+  if (cardFilter === 'down') return LOC_DATA.filter(d => (getMonthData(d,lm).diff||0) < 0);
+  if (cardFilter === 'flat') return LOC_DATA.filter(d => { const df=getMonthData(d,lm).diff; return df===0||df===null; });
+  if (cardFilter === 'diff') return [...LOC_DATA].sort((a,b)=>Math.abs(getMonthData(b,lm).diff||0)-Math.abs(getMonthData(a,lm).diff||0));
+  return LOC_DATA;
+}
+
+// ========== CARDS ==========
+function renderCards() {
+  const lm = activeLocMonth;
+  const vm0=getVisibleMonths(); const prevIdx = vm0.indexOf(lm)-1;
+  const prevMonth = prevIdx>=0 ? vm0[prevIdx] : null;
+  let totalAmt=0, totalDiff=0;
+  const upLocs=[], downLocs=[], flatLocs=[];
+  LOC_DATA.forEach(loc => {
+    const md = getMonthData(loc,lm);
+    totalAmt += md.amount||0;
+    if (md.diff!=null && md.diff>0) { totalDiff+=md.diff; upLocs.push({loc,diff:md.diff,amount:md.amount}); }
+    else if (md.diff!=null && md.diff<0) { totalDiff+=md.diff; downLocs.push({loc,diff:md.diff,amount:md.amount}); }
+    else flatLocs.push({loc,amount:md.amount||0});
+  });
+  upLocs.sort((a,b)=>b.diff-a.diff);
+  downLocs.sort((a,b)=>a.diff-b.diff);
+  const totalUp = upLocs.reduce((s,x)=>s+x.diff,0);
+  const totalDown = downLocs.reduce((s,x)=>s+x.diff,0);
+  const flat = d => cardFilter===d;
+
+  const miniRows = (items, valFn, colorFn, limit=3) => items.slice(0,limit).map(x=>`
+    <div class="card-row">
+      <span class="card-row-label" title="${x.loc.location}">${x.loc.location.replace(/^(SMM-\d+) .*/,'$1 …').substring(0,28)}</span>
+      <span class="card-row-val" style="color:${colorFn(x)}">${valFn(x)}</span>
+    </div>`).join('');
+
+  document.getElementById('cards').innerHTML = `
+    <div class="card blue ${flat('all')?'active-filter':''}" onclick="setCardFilter('all')">
+      <div class="card-label">📊 ภาพรวม ${lm} <span class="card-badge">${LOC_DATA.length} คลัง</span></div>
+      <div class="card-value">฿${fmt(totalAmt)}</div>
+      <div class="card-sub">เฉลี่ย ฿${fmt(totalAmt/LOC_DATA.length)} / คลัง</div>
+      <div class="card-rows">
+        ${[...LOC_DATA].sort((a,b)=>(getMonthData(b,lm).amount||0)-(getMonthData(a,lm).amount||0)).slice(0,3).map(d=>`
+          <div class="card-row">
+            <span class="card-row-label" title="${d.location}">${d.location.substring(0,26)}</span>
+            <span class="card-row-val" style="color:#3b82f6;">฿${fmt(getMonthData(d,lm).amount)}</span>
+          </div>`).join('')}
+      </div>
+      <div class="card-hint">คลิกเพื่อดูทั้งหมด</div>
+    </div>
+
+    <div class="card ${totalDiff>=0?'red':'green'} ${flat('diff')?'active-filter':''}" onclick="setCardFilter('diff')">
+      <div class="card-label">🔄 Diff vs ${prevMonth||'—'} <span class="card-badge">${totalDiff>=0?'เพิ่ม':'ลด'}</span></div>
+      <div class="card-value" style="font-size:1.35rem;color:${totalDiff>=0?'#ef4444':'#10b981'}">${totalDiff>=0?'+':''}฿${fmt(totalDiff)}</div>
+      <div class="card-sub">${totalDiff>=0?'สต็อกสะสมเพิ่มขึ้น':'สต็อกถูกใช้ไป / ส่งมอบ'}</div>
+      <div class="card-rows">
+        ${[...LOC_DATA].filter(d=>getMonthData(d,lm).diff!=null).sort((a,b)=>Math.abs(getMonthData(b,lm).diff||0)-Math.abs(getMonthData(a,lm).diff||0)).slice(0,3).map(d=>{
+          const df=getMonthData(d,lm).diff;
+          return `<div class="card-row">
+            <span class="card-row-label" title="${d.location}">${d.location.substring(0,24)}</span>
+            <span class="card-row-val" style="color:${df>=0?'#ef4444':'#10b981'}">${df>=0?'▲':'▼'}฿${fmt(Math.abs(df))}</span>
+          </div>`;}).join('')}
+      </div>
+      <div class="card-hint">คลิกเพื่อเรียงตาม Diff</div>
+    </div>
+
+    <div class="card red ${flat('up')?'active-filter':''}" onclick="setCardFilter('up')">
+      <div class="card-label">📈 มูลค่าเพิ่มขึ้น <span class="card-badge">${upLocs.length} คลัง</span></div>
+      <div class="card-value" style="color:#ef4444;">+฿${fmt(totalUp)}</div>
+      <div class="card-sub">รวมที่เพิ่ม ${upLocs.length} คลัง</div>
+      <div class="card-rows">
+        ${miniRows(upLocs, x=>`▲฿${fmt(x.diff)}`, ()=>'#ef4444')}
+      </div>
+      <div class="card-hint">คลิกเพื่อกรองเฉพาะ</div>
+    </div>
+
+    <div class="card green ${flat('down')?'active-filter':''}" onclick="setCardFilter('down')">
+      <div class="card-label">📉 มูลค่าลดลง <span class="card-badge">${downLocs.length} คลัง</span></div>
+      <div class="card-value" style="color:#10b981;">-฿${fmt(Math.abs(totalDown))}</div>
+      <div class="card-sub">รวมที่ลด ${downLocs.length} คลัง</div>
+      <div class="card-rows">
+        ${miniRows(downLocs, x=>`▼฿${fmt(Math.abs(x.diff))}`, ()=>'#10b981')}
+      </div>
+      <div class="card-hint">คลิกเพื่อกรองเฉพาะ</div>
+    </div>
+
+    <div class="card purple ${flat('flat')?'active-filter':''}" onclick="setCardFilter('flat')">
+      <div class="card-label">⏸ ไม่เปลี่ยนแปลง <span class="card-badge">${flatLocs.length} คลัง</span></div>
+      <div class="card-value" style="color:#8b5cf6;font-size:1.35rem;">— ${flatLocs.length}</div>
+      <div class="card-sub">คลังที่สต็อกไม่เคลื่อนไหว</div>
+      <div class="card-rows">
+        ${flatLocs.slice(0,3).map(x=>`<div class="card-row">
+          <span class="card-row-label" title="${x.loc.location}">${x.loc.location.substring(0,26)}</span>
+          <span class="card-row-val" style="color:#8b5cf6;">฿${fmt(x.amount)}</span>
+        </div>`).join('')}
+      </div>
+      <div class="card-hint">คลิกเพื่อกรองเฉพาะ</div>
+    </div>
+  `;
+}
+
+// ========== OVERVIEW CHARTS ==========
+let amtChart, qtyChart;
+function renderOverviewCharts() {
+  const _vm=getVisibleMonths(); const amtData = _vm.map(m=>LOC_DATA.reduce((s,l)=>s+(getMonthData(l,m).amount||0),0));
+  const qtyData = _vm.map(m=>LOC_DATA.reduce((s,l)=>s+(getMonthData(l,m).qty||0),0));
+  amtChart = new Chart(document.getElementById('chartAmount'),{type:'bar',data:{labels:_vm,datasets:[{label:'Bal Amount',data:amtData,backgroundColor:_vm.map((m,i)=>i===_vm.length-1?'#4f46e5':'#c7d2fe'),borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'฿'+fmt(v)}}}}});
+  qtyChart = new Chart(document.getElementById('chartQty'),{type:'line',data:{labels:_vm,datasets:[{label:'Bal QTY',data:qtyData,borderColor:'#10b981',backgroundColor:'rgba(16,185,129,.1)',fill:true,tension:0.4,pointRadius:5}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>fmt(v)}}}}});
+}
+
+// ========== LOCATION CHIPS + CHART ==========
+function renderLocChips() {
+  const filteredKeys = cardFilter ? new Set(getFilteredLocs().map(d=>d.location)) : null;
+  document.getElementById('locChips').innerHTML = LOC_DATA.map(d => {
+    const inFilter = !filteredKeys || filteredKeys.has(d.location);
+    const isActive = cardFilter ? inFilter : activeLocations.has(d.location);
+    const dimStyle = (filteredKeys && !inFilter) ? 'opacity:.35;pointer-events:none;' : '';
+    return `<span class="loc-chip ${isActive?'active':''}" style="${dimStyle}" onclick="toggleLoc('${d.location.replace(/'/g,"\\'")}')"> ${d.location.substring(0,30)}${d.location.length>30?'…':''}</span>`;
+  }).join('');
+}
+function toggleLoc(loc) {
+  if(activeLocations.has(loc)){if(activeLocations.size>1)activeLocations.delete(loc);}else activeLocations.add(loc);
+  renderLocChips(); renderLocChart();
+}
+function renderLocChart() {
+  if(locChart){locChart.destroy();locChart=null;}
+  // When card filter is active → show all matching locations
+  // When no card filter → show only chip-selected locations
+  const selLocs = cardFilter
+    ? getFilteredLocs()
+    : LOC_DATA.filter(d=>activeLocations.has(d.location));
+  const _lvm=getVisibleMonths(); locChart = new Chart(document.getElementById('chartLoc'),{type:'line',data:{labels:_lvm,datasets:selLocs.map((d,i)=>({label:d.location.substring(0,35),data:_lvm.map(m=>getMonthData(d,m).amount||null),borderColor:COLORS[i%COLORS.length],backgroundColor:'transparent',tension:0.4,pointRadius:5,borderWidth:2}))},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}},scales:{y:{ticks:{callback:v=>'฿'+fmt(v)}}}}});
+}
+
+// ========== LOCATION TABLE ==========
+function renderLocMonthTabs() {
+  document.getElementById('tabBtns').innerHTML = getVisibleMonths().slice(1).map(m=>`<button class="tab-btn ${m===activeLocMonth?'active':''}" onclick="setLocMonth('${m}')">${m}</button>`).join('');
+}
+function setLocMonth(m) { activeLocMonth=m; renderLocMonthTabs(); renderCards(); renderLocTable(); }
+function renderLocTable() {
+  const metric = document.getElementById('metricSel').value;
+  const search = document.getElementById('searchBox').value.toLowerCase();
+  const _tvm=getVisibleMonths(); const prevIdx = _tvm.indexOf(activeLocMonth)-1;
+  const prevMonth = prevIdx>=0?_tvm[prevIdx]:null;
+  document.getElementById('loc-thead').innerHTML = `<tr><th>คลัง / Location</th>${prevMonth?`<th class="num">${prevMonth}</th>`:''}<th class="num">${activeLocMonth}</th><th class="num">Diff (฿)</th><th class="num">% Change</th></tr>`;
+  let base = getFilteredLocs();
+  const rows = base.filter(d=>d.location.toLowerCase().includes(search));
+  // Sort by diff if diff filter, otherwise by value
+  if (cardFilter !== 'diff') rows.sort((a,b)=>(getMonthData(b,activeLocMonth)[metric]||0)-(getMonthData(a,activeLocMonth)[metric]||0));
+  document.getElementById('loc-tbody').innerHTML = rows.map(d=>{
+    const cur=getMonthData(d,activeLocMonth); const prev=prevMonth?getMonthData(d,prevMonth):null;
+    const curVal=cur[metric]||0; const prevVal=prev?prev[metric]||0:null;
+    const diff=cur.diff; const pct=prevVal?(curVal-prevVal)/prevVal*100:null;
+    const diffClass=diff==null?'diff-zero':diff>0?'diff-pos':'diff-neg';
+    const badge=diff==null||diff===0?`<span class="badge flat">—</span>`:diff>0?`<span class="badge up">▲ ${fmtDiff(diff)}</span>`:`<span class="badge down">▼ ${fmtDiff(diff)}</span>`;
+    return `<tr><td class="loc">${d.location}</td>${prevVal!=null?`<td class="num">${metric==='amount'?'฿':''}${fmt(prevVal)}</td>`:''}<td class="num">${metric==='amount'?'฿':''}${fmt(curVal)}</td><td class="${diffClass}">${badge}</td><td class="num" style="color:${pct==null?'#9ca3af':pct>=0?'#ef4444':'#10b981'}">${pct!=null?(pct>=0?'+':'')+pct.toFixed(1)+'%':'—'}</td></tr>`;
+  }).join('');
+}
+
+// ========== CATEGORY CHARTS ==========
+function renderCatCharts() {
+  // Bar chart: top 8 categories in selected month
+  const top8 = CAT_DATA.filter(c=>getCatMonthData(c,activeCatMonth).amount>0).sort((a,b)=>getCatMonthData(b,activeCatMonth).amount-getCatMonthData(a,activeCatMonth).amount).slice(0,8);
+  if(catBarChart){catBarChart.destroy();}
+  catBarChart = new Chart(document.getElementById('chartCatBar'),{type:'bar',data:{labels:top8.map(c=>c.name.substring(0,30)),datasets:[{label:'Bal Amount',data:top8.map(c=>getCatMonthData(c,activeCatMonth).amount),backgroundColor:COLORS.slice(0,8),borderRadius:6}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>'฿'+fmt(v)}}}}});
+  // Line chart: top 5 categories trend
+  const top5 = CAT_DATA.filter(c=>c.months.some(m=>m.amount>0)).sort((a,b)=>{const am=a.months.reduce((s,m)=>s+m.amount,0),bm=b.months.reduce((s,m)=>s+m.amount,0);return bm-am;}).slice(0,5);
+  if(catLineChart){catLineChart.destroy();}
+  const _cvm=getVisibleMonths(); catLineChart = new Chart(document.getElementById('chartCatLine'),{type:'line',data:{labels:_cvm,datasets:top5.map((c,i)=>({label:c.name.substring(0,25),data:_cvm.map(m=>getCatMonthData(c,m).amount||null),borderColor:COLORS[i%COLORS.length],backgroundColor:'transparent',tension:0.4,pointRadius:4,borderWidth:2}))},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}},scales:{y:{ticks:{callback:v=>'฿'+fmt(v)}}}}});
+}
+
+// ========== CATEGORY TABLE ==========
+function renderCatMonthTabs() {
+  document.getElementById('catTabBtns').innerHTML = getVisibleMonths().map(m=>`<button class="tab-btn ${m===activeCatMonth?'active':''}" onclick="setCatMonth('${m}')">${m}</button>`).join('');
+}
+function setCatMonth(m) { activeCatMonth=m; renderCatMonthTabs(); renderCatCharts(); renderCatTable(); }
+function renderCatTable() {
+  const search = document.getElementById('catSearchBox').value.toLowerCase();
+  const _ctvm=getVisibleMonths(); const prevIdx = _ctvm.indexOf(activeCatMonth)-1;
+  const prevMonth = prevIdx>=0?_ctvm[prevIdx]:null;
+  document.getElementById('cat-thead').innerHTML = `<tr><th>กลุ่มสินค้า (Category)</th><th>Code</th>${prevMonth?`<th class="num">${prevMonth}</th>`:''}<th class="num">${activeCatMonth}</th><th class="num">Diff (฿)</th><th class="num">% Change</th></tr>`;
+  const rows = CAT_DATA.filter(c=>c.name.toLowerCase().includes(search)||c.code.toLowerCase().includes(search)).sort((a,b)=>getCatMonthData(b,activeCatMonth).amount-getCatMonthData(a,activeCatMonth).amount);
+  document.getElementById('cat-tbody').innerHTML = rows.map(c=>{
+    const cur=getCatMonthData(c,activeCatMonth); const prev=prevMonth?getCatMonthData(c,prevMonth):null;
+    const curAmt=cur.amount||0; const prevAmt=prev?prev.amount||0:null;
+    const diff=curAmt-(prevAmt||0); const pct=prevAmt&&prevAmt>0?(curAmt-prevAmt)/prevAmt*100:null;
+    const diffClass=diff===0?'diff-zero':diff>0?'diff-pos':'diff-neg';
+    const badge=diff===0?`<span class="badge flat">—</span>`:diff>0?`<span class="badge up">▲ ฿${fmt(diff)}</span>`:`<span class="badge down">▼ ฿${fmt(Math.abs(diff))}</span>`;
+    const isNew = c.name.includes('*ใหม่');
+    return `<tr><td class="loc">${c.name.replace(' *ใหม่ Jun','')}<span style="color:#f59e0b;font-size:.7rem;">${isNew?' 🆕':''}</span></td><td><span class="code-tag">${c.code}</span></td>${prevAmt!=null?`<td class="num">฿${fmt(prevAmt)}</td>`:''}<td class="num">฿${fmt(curAmt)}</td><td class="${diffClass}">${badge}</td><td class="num" style="color:${pct==null?'#9ca3af':pct>=0?'#ef4444':'#10b981'}">${pct!=null?(pct>=0?'+':'')+pct.toFixed(1)+'%':'—'}</td></tr>`;
+  }).join('');
+}
+
+// ========== LOC × CAT CROSS-TAB (Jun 2026 from raw export) ==========
+// Format: {locationName: {cat5Code: {qty, amount}}}
+const LOC_CAT_JUN2026 = {
+  "SMM-1952 Mulberry Villa phase1": {
+    "RM.GL":{qty:207,amount:1892829.37},"RM.HA":{qty:20,amount:5544},"RM.HP":{qty:32,amount:13760}
+  },
+  "SMM-1953 Mulberry Grove Villas (Phase 2) Bangna": {
+    "PT.AL":{qty:484,amount:0},"RM.AC":{qty:60,amount:435015.31},"RM.AL":{qty:15093,amount:18508570.22},
+    "RM.AS":{qty:1718,amount:6496172.44},"RM.GL":{qty:1430,amount:6874251.45},"RM.HA":{qty:108628,amount:5338445.78},
+    "RM.HC":{qty:3500,amount:729},"RM.MO":{qty:2023,amount:512084.17}
+  },
+  "SMM-2103 Mulberry สุขุมวิท 65": {
+    "RM.GL":{qty:7,amount:23617.31}
+  },
+  "SMM-2107 Mulberry Grove Condo": {
+    "RM.AL":{qty:133,amount:74180.71},"RM.AS":{qty:35,amount:168700},"RM.GL":{qty:26,amount:192441.81},
+    "RM.HA":{qty:47,amount:19100},"RM.HC":{qty:1000,amount:34000},"RM.HP":{qty:100,amount:23000}
+  },
+  "SMM-2115 Dusit Centralpark": {
+    "RM.GL":{qty:2,amount:31129.22}
+  },
+  "SMM-2213 Scope Thonglor": {},
+  "SMM-2319 UOB SATHON": {
+    "RM.GL":{qty:4,amount:26450.8}
+  },
+  "SMM-2408 วันเวลา ณ เจ้าพระยา": {
+    "PT.AL":{qty:94,amount:0},"RM.AL":{qty:3174,amount:1570343.43},"RM.AS":{qty:30,amount:54250.25},
+    "RM.GL":{qty:1984,amount:2400186.59},"RM.HA":{qty:58449,amount:593534.06},"RM.HC":{qty:6720,amount:3927.84},
+    "RM.HP":{qty:2600,amount:520000},"RM.HS":{qty:160,amount:24000}
+  },
+  "SMM-2412 Benchasiri Alliance Hotel": {
+    "PT.AL":{qty:7,amount:0},"RM.AC":{qty:288,amount:1060995.85},"RM.AL":{qty:762,amount:943755.58},
+    "RM.AS":{qty:25,amount:121170},"RM.GL":{qty:269,amount:2277416.99},"RM.HA":{qty:31754,amount:1089139.98},
+    "RM.HC":{qty:31334,amount:61759.43},"RM.HP":{qty:1040,amount:335200},"RM.HS":{qty:1160,amount:709600.26},
+    "RN.HW":{qty:10,amount:12000}
+  },
+  "SMM-2513 THE HAPPITAT AT FORESTIAS": {
+    "RM.MC":{qty:76942,amount:520976},"RM.AL":{qty:250,amount:208066.45},"RM.GL":{qty:69,amount:394049.7},
+    "RM.AS":{qty:21,amount:19005},"RM.HA":{qty:152,amount:27901.02},"RM.HC":{qty:9,amount:33820},
+    "RM.MO":{qty:1335,amount:2540368.61}
+  },
+  "Store Center": {
+    "FG":{qty:253,amount:0},"PT.AL":{qty:17758,amount:3454578.64},"PT.AS":{qty:196,amount:0},
+    "RM.GL":{qty:4036,amount:22575536.67},"RM.MC":{qty:183056,amount:10430.56},"PD.AL":{qty:6,amount:0},
+    "RM.AL":{qty:32398,amount:20731682.58},"RM.AC":{qty:157,amount:615440.15},"RM.AF":{qty:13,amount:48077.78},
+    "RM.AS":{qty:170,amount:360183.72},"RM.HA":{qty:888289,amount:24101148.93},"RM.HC":{qty:1479185,amount:4113276.1},
+    "RM.HS":{qty:95,amount:73205},"RM.MO":{qty:1642,amount:348638.35},"RM.SP":{qty:346,amount:68591.07},
+    "RM.SS":{qty:44,amount:107085.93},"RM.ST":{qty:1824,amount:1777048.42},"RN.HW":{qty:26699,amount:2082438.75},
+    "RN.PD":{qty:554,amount:43275.21}
+  },
+  "Store Finished Goods": {
+    "FG":{qty:45128,amount:0},"PT.AL":{qty:2468,amount:608.08},"PT.AS":{qty:2452.69,amount:0},
+    "PD.AS":{qty:1,amount:0},"PT.ST":{qty:3,amount:0},"RM.AL":{qty:3,amount:576.54},
+    "RM.GL":{qty:7,amount:11636.96},"RM.HA":{qty:335,amount:34139.79},"RM.HC":{qty:1737,amount:6505.88},
+    "RM.MO":{qty:118,amount:3920.45},"RN.HW":{qty:6,amount:2790}
+  },
+  "Store Movement (โครงการดำเนินการอยู่)": {
+    "PT.AL":{qty:14,amount:0},"RM.AC":{qty:115,amount:548092.93},"RM.AL":{qty:7840,amount:4661028.31},
+    "RM.AS":{qty:639,amount:1460416.91},"RM.GL":{qty:876,amount:3482177.23},"RM.HA":{qty:73093,amount:1506675.55},
+    "RM.HC":{qty:3848,amount:365067.29},"RM.HP":{qty:5323,amount:1487080},"RM.HS":{qty:294,amount:27780},
+    "RM.MO":{qty:2063,amount:87817.84},"RM.SP":{qty:36,amount:52075.03},"RM.SS":{qty:255,amount:368877.19},
+    "RM.ST":{qty:165,amount:135300},"RN.HW":{qty:10,amount:20350}
+  },
+  "Store Production": {
+    "FG":{qty:2,amount:0},"RM.GL":{qty:1386,amount:4345232.18},"PD.AS":{qty:7,amount:0},
+    "PT.AL":{qty:942,amount:13778.5},"PT.AS":{qty:943,amount:0},"PT.ST":{qty:22,amount:0},
+    "RM.AL":{qty:2771,amount:2574314.21},"RM.AS":{qty:1276,amount:2670636.66},"RM.HA":{qty:89984.99,amount:3240432.27},
+    "RM.HC":{qty:383463,amount:445446.75},"RM.HS":{qty:3761,amount:878657.96},"RM.MO":{qty:2462,amount:663519.43},
+    "RM.SP":{qty:95,amount:45293.47},"RM.SS":{qty:39,amount:495623},"RM.ST":{qty:2588,amount:2748592.88},
+    "RN.HW":{qty:5262,amount:562355.68},"RN.PD":{qty:4369,amount:2242277.51}
+  },
+  "Store โรงพ่นสี": {
+    "PT.AL":{qty:21786,amount:496.05},"PD.AS":{qty:2,amount:0},"PT.AS":{qty:615,amount:0},
+    "PT.ST":{qty:23,amount:0},"PT.HW":{qty:52,amount:0},"RM.AL":{qty:489.64,amount:810317.54},
+    "RM.HP":{qty:240,amount:54180},"RM.ST":{qty:50,amount:4750},"RN.HW":{qty:1695,amount:2235223.96},
+    "RN.PD":{qty:51,amount:1603.75}
+  }
+};
+
+// ========== PIVOT BUILDER ==========
+const PIVOT_DIMS = [
+  {id:'location', label:'📍 Location'},
+  {id:'category', label:'📦 Category'},
+  {id:'month',    label:'📅 Month'}
+];
+const PIVOT_VALS = [
+  {id:'amount', label:'฿ Amount'},
+  {id:'qty',    label:'# QTY'}
+];
+const ALL_MONTHS_PIVOT = ["Jan 2025", "Feb 2025", "Mar 2025", "Apr 2025", "May 2025", "Jun 2025", "Jul 2025", "Aug 2025", "Sep 2025", "Oct 2025", "Nov 2025", "Dec 2025", "Jan 2026", "Feb 2026", "Mar 2026", "Apr 2026", "May 2026", "Jun 2026"];
+
+let pvState = {
+  row: 'location',
+  col: 'month',
+  val: 'amount',
+  months: new Set(ALL_MONTHS_PIVOT),
+  pivotChartInst: null
+};
+
+function initPivotToolbar() {
+  // Row dim buttons
+  document.getElementById('rowDimBtns').innerHTML = PIVOT_DIMS.map(d =>
+    `<button class="dim-btn ${pvState.row===d.id?'active':''}" onclick="setPivotDim('row','${d.id}')">${d.label}</button>`).join('');
+  // Col dim buttons (exclude same as row)
+  document.getElementById('colDimBtns').innerHTML = PIVOT_DIMS.filter(d=>d.id!==pvState.row).map(d =>
+    `<button class="dim-btn ${pvState.col===d.id?'active':''}" onclick="setPivotDim('col','${d.id}')">${d.label}</button>`).join('');
+  // Value buttons
+  document.getElementById('valBtns').innerHTML = PIVOT_VALS.map(v =>
+    `<button class="dim-btn ${pvState.val===v.id?'active':''}" onclick="setPivotVal('${v.id}')">${v.label}</button>`).join('');
+  // Month filter chips
+  document.getElementById('monthFilterBtns').innerHTML = ALL_MONTHS_PIVOT.map(m =>
+    `<button class="dim-btn ${pvState.months.has(m)?'active':''}" style="font-size:.72rem;padding:3px 8px;" onclick="togglePivotMonth('${m}')">${m}</button>`).join('');
+}
+
+function setPivotDim(which, val) {
+  pvState[which] = val;
+  // Auto-fix: row and col can't be same
+  if (pvState.row === pvState.col) {
+    const others = PIVOT_DIMS.map(d=>d.id).filter(id=>id!==val);
+    pvState[which==='row'?'col':'row'] = others[0];
+  }
+  initPivotToolbar();
+  renderPivot();
+}
+function setPivotVal(v) { pvState.val=v; initPivotToolbar(); renderPivot(); }
+function togglePivotMonth(m) { pvState.months.has(m)?pvState.months.delete(m):pvState.months.add(m); initPivotToolbar(); renderPivot(); }
+
+// Get row keys and labels for a given dimension
+function getPivotKeys(dim) {
+  if (dim==='location') return LOC_DATA.map(d=>({key:d.location,label:d.location}));
+  if (dim==='category') return CAT_DATA.map(d=>({key:d.code,label:d.name,code:d.code}));
+  if (dim==='month') return ALL_MONTHS_PIVOT.filter(m=>pvState.months.has(m)).map(m=>({key:m,label:m}));
+  return [];
+}
+
+// Get a cell value given row key (rowDim), col key (colDim), and value metric
+function getPivotValue(rowDim, rowKey, colDim, colKey) {
+  const m = pvState.val;
+  // Determine which month and which other dim applies
+  let month=null, locKey=null, catCode=null;
+  const setDim = (dim, key) => {
+    if(dim==='month') month=key;
+    else if(dim==='location') locKey=key;
+    else if(dim==='category') catCode=key;
+  };
+  setDim(rowDim, rowKey);
+  setDim(colDim, colKey);
+
+  // Location × Month
+  if((rowDim==='location'&&colDim==='month')||(rowDim==='month'&&colDim==='location')) {
+    if(!locKey||!month) return null;
+    const loc = LOC_DATA.find(d=>d.location===locKey);
+    if(!loc) return null;
+    const md = loc.months.find(mo=>mo.month===month);
+    return md?(md[m]||0):0;
+  }
+  // Category × Month
+  if((rowDim==='category'&&colDim==='month')||(rowDim==='month'&&colDim==='category')) {
+    if(!catCode||!month) return null;
+    const cat = CAT_DATA.find(c=>c.code===catCode);
+    if(!cat) return null;
+    const cd = cat.months.find(mo=>mo.m===month);
+    return cd?(cd[m]||0):0;
+  }
+  // Location × Category (Jun 2026 only — from raw export)
+  if((rowDim==='location'&&colDim==='category')||(rowDim==='category'&&colDim==='location')) {
+    if(!locKey||!catCode) return null;
+    const locEntry = LOC_CAT_JUN2026[locKey];
+    if(!locEntry) return 0;
+    const cell = locEntry[catCode];
+    return cell ? (cell[m]||0) : 0;
+  }
+  return null;
+}
+
+// Get row total across all active columns
+function getPivotRowTotal(rowDim, rowKey, colKeys, colDim) {
+  return colKeys.reduce((s,ck)=>s+(getPivotValue(rowDim,rowKey,colDim,ck.key)||0),0);
+}
+
+// Heatmap color interpolation
+function heatColor(ratio, alpha=0.55) {
+  const stops = [[248,250,252],[199,210,254],[129,140,248],[79,70,229]];
+  const t = Math.max(0,Math.min(1,ratio));
+  const idx = Math.floor(t*3);
+  const frac = t*3-idx;
+  const a=stops[Math.min(idx,2)], b=stops[Math.min(idx+1,3)];
+  const r=Math.round(a[0]+(b[0]-a[0])*frac);
+  const g=Math.round(a[1]+(b[1]-a[1])*frac);
+  const bl=Math.round(a[2]+(b[2]-a[2])*frac);
+  return `rgba(${r},${g},${bl},${alpha})`;
+}
+
+function renderPivot() {
+  if(!document.getElementById('pivotTable')) return;
+  const search = (document.getElementById('pivotSearch')||{}).value||'';
+  const useHeat = document.getElementById('heatmapToggle').checked;
+  const showDiff = document.getElementById('diffToggle').checked;
+  const showColTotal = document.getElementById('colTotalToggle').checked;
+  const showTotal = showColTotal; // col total column
+
+  const rowDim = pvState.row, colDim = pvState.col;
+  const isCrossTab = (rowDim==='location'&&colDim==='category')||(rowDim==='category'&&colDim==='location');
+  document.getElementById('pivotInfoBar').style.display = isCrossTab?'block':'none';
+
+  let rowKeys = getPivotKeys(rowDim);
+  let colKeys = getPivotKeys(colDim);
+
+  // Filter columns by selected months if month is the col dim
+  if(colDim==='month') colKeys = colKeys.filter(c=>pvState.months.has(c.key));
+
+  // Filter rows by search
+  if(search) rowKeys = rowKeys.filter(r=>r.label.toLowerCase().includes(search.toLowerCase())||
+    (r.code&&r.code.toLowerCase().includes(search.toLowerCase())));
+
+  // Caption
+  const dimLabel = d => PIVOT_DIMS.find(x=>x.id===d)?.label||d;
+  const valLabel = PIVOT_VALS.find(v=>v.id===pvState.val)?.label||'';
+  document.getElementById('pivotCaption').textContent = `${dimLabel(rowDim)} × ${dimLabel(colDim)} — ${valLabel}`;
+
+  // Collect all values for heatmap scale
+  const allVals = [];
+  rowKeys.forEach(rk => colKeys.forEach(ck => { const v=getPivotValue(rowDim,rk.key,colDim,ck.key); if(v!=null&&v>0) allVals.push(v); }));
+  const maxVal = allVals.length?Math.max(...allVals):1;
+
+  // Build HTML
+  let html = '<thead><tr>';
+  html += `<th class="row-header">${dimLabel(rowDim)}</th>`;
+  colKeys.forEach(ck => { html += `<th>${ck.label}</th>`; });
+  if(showTotal) html += '<th style="background:#eef2ff;">รวมทั้งหมด</th>';
+  html += '</tr></thead><tbody>';
+
+  // Grand total accumulators
+  const colTotals = {};
+  colKeys.forEach(ck => colTotals[ck.key]=0);
+  let grandTotal = 0;
+
+  rowKeys.forEach((rk, ri) => {
+    const rowTotal = getPivotRowTotal(rowDim, rk.key, colKeys, colDim);
+    grandTotal += rowTotal;
+    const labelDisplay = rowDim==='category' ? `<span style="color:#9ca3af;font-size:.68rem;font-family:monospace;margin-right:5px;">${rk.code}</span>${rk.label}` : rk.label;
+    const shortLabel = rk.label.length>45 ? rk.label.substring(0,45)+'…' : rk.label;
+    const displayLabel = rowDim==='category' ? `<span style="color:#9ca3af;font-size:.68rem;font-family:monospace;margin-right:5px;">${rk.code}</span>${shortLabel}` : shortLabel;
+    html += `<tr><td class="row-label" title="${rk.label}" onclick="openDrill('${rowDim}','${rk.key.replace(/'/g,"\\'")}','${rk.label.replace(/'/g,"\\'")}')">${displayLabel}</td>`;
+    colKeys.forEach((ck, ci) => {
+      const v = getPivotValue(rowDim, rk.key, colDim, ck.key);
+      const display = v==null ? '<span style="color:#d1d5db;">—</span>' : (pvState.val==='amount'?'฿':'')+fmt(v);
+      const bg = (useHeat&&v!=null&&v>0) ? `background:${heatColor(v/maxVal)};` : '';
+      const prevKey = ci>0?colKeys[ci-1].key:null;
+      const prevV = prevKey?getPivotValue(rowDim,rk.key,colDim,prevKey):null;
+      const diff = (showDiff&&prevV!=null&&v!=null) ? v-prevV : null;
+      const diffHtml = diff!=null ? `<div style="font-size:.65rem;color:${diff>=0?'#ef4444':'#10b981'};margin-top:1px;">${diff>=0?'▲':'▼'}${pvState.val==='amount'?'฿':''}${fmt(Math.abs(diff))}</div>` : '';
+      if(v!=null) colTotals[ck.key]=(colTotals[ck.key]||0)+v;
+      html += `<td style="${bg}">${display}${diffHtml}</td>`;
+    });
+    if(showTotal) {
+      const tbg = useHeat&&rowTotal>0 ? `background:${heatColor(rowTotal/maxVal,0.35)};` : '';
+      html += `<td style="font-weight:600;${tbg}">${pvState.val==='amount'?'฿':''}${fmt(rowTotal)}</td>`;
+    }
+    html += '</tr>';
+  });
+
+  // Grand total row — always shown
+  if(rowKeys.length>0) {
+    html += '<tr class="total-row"><td class="row-label" style="cursor:default;">📊 Grand Total</td>';
+    colKeys.forEach(ck => { html += `<td>${pvState.val==='amount'?'฿':''}${fmt(colTotals[ck.key]||0)}</td>`; });
+    if(showColTotal) html += `<td>${pvState.val==='amount'?'฿':''}${fmt(grandTotal)}</td>`;
+    html += '</tr>';
+  }
+  html += '</tbody>';
+  document.getElementById('pivotTable').innerHTML = html;
+}
+
+// ========== DRILL-DOWN PANEL ==========
+let drillChartInst = null;
+function openDrill(dim, key, label) {
+  document.getElementById('drillOverlay').style.display = 'block';
+  document.getElementById('drillPanel').style.display = 'flex';
+  document.getElementById('drillTitle').textContent = label;
+  document.getElementById('drillBody').innerHTML = buildDrillContent(dim, key, label);
+  // Render chart after DOM is set
+  setTimeout(() => renderDrillChart(dim, key), 50);
+}
+function closeDrill() {
+  document.getElementById('drillOverlay').style.display = 'none';
+  document.getElementById('drillPanel').style.display = 'none';
+  if(drillChartInst){drillChartInst.destroy();drillChartInst=null;}
+}
+function buildDrillContent(dim, key, label) {
+  const v = pvState.val;
+  const vLabel = v==='amount'?'Bal Amount (฿)':'Bal QTY';
+  let months=[], values=[], diffs=[];
+  if(dim==='location') {
+    const loc = LOC_DATA.find(d=>d.location===key);
+    if(!loc) return '<div class="no-data-msg">ไม่พบข้อมูล</div>';
+    loc.months.forEach(m => { months.push(m.month); values.push(m[v]||0); diffs.push(m.diff); });
+  } else if(dim==='category') {
+    const cat = CAT_DATA.find(c=>c.code===key);
+    if(!cat) return '<div class="no-data-msg">ไม่พบข้อมูล</div>';
+    cat.months.forEach(m => { months.push(m.m); values.push(m[v]||0); diffs.push(null); });
+  } else if(dim==='month') {
+    // Month drill: show location breakdown for that month
+    LOC_DATA.forEach(loc => {
+      const md = loc.months.find(m=>m.month===key);
+      if(md) { months.push(loc.location); values.push(md[v]||0); diffs.push(md.diff); }
+    });
+  }
+  const total = values.reduce((s,x)=>s+x,0);
+  const maxV = Math.max(...values)||1;
+  const lastV = values[values.length-1];
+  const firstV = values[0];
+  const change = firstV>0?(lastV-firstV)/firstV*100:0;
+  let statsHtml = `<div class="drill-stat-row">
+    <div class="drill-stat"><div class="drill-stat-label">ล่าสุด</div><div class="drill-stat-val">${v==='amount'?'฿':''}${fmt(lastV)}</div></div>
+    <div class="drill-stat"><div class="drill-stat-label">เฉลี่ย</div><div class="drill-stat-val">${v==='amount'?'฿':''}${fmt(total/Math.max(months.length,1))}</div></div>
+    <div class="drill-stat"><div class="drill-stat-label">${dim==='month'?'รวม':'เปลี่ยนแปลง'}</div><div class="drill-stat-val" style="color:${change>=0?'#ef4444':'#10b981'}">${dim==='month'?fmt(total):(change>=0?'▲':'▼')+Math.abs(change).toFixed(1)+'%'}</div></div>
+  </div>`;
+  let tableHtml = `<table class="drill-table"><thead><tr><th>${dim==='month'?'คลัง':'เดือน'}</th><th>${vLabel}</th><th>Diff</th><th>%</th></tr></thead><tbody>`;
+  months.forEach((m,i) => {
+    const pct = i>0&&values[i-1]>0?(values[i]-values[i-1])/values[i-1]*100:null;
+    const d = diffs[i];
+    const diffStr = d!=null ? `<span style="color:${d>=0?'#ef4444':'#10b981'}">${d>=0?'▲':'▼'}${fmt(Math.abs(d))}</span>` : '—';
+    const pctStr = pct!=null ? `<span style="color:${pct>=0?'#ef4444':'#10b981'}">${pct>=0?'+':''}${pct.toFixed(1)}%</span>` : '—';
+    const barW = Math.round(values[i]/maxV*80);
+    tableHtml += `<tr><td>${m.length>30?m.substring(0,30)+'…':m}</td>
+      <td><div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;">${v==='amount'?'฿':''}${fmt(values[i])}<div style="width:${barW}px;height:6px;background:#c7d2fe;border-radius:3px;flex-shrink:0;"></div></div></td>
+      <td>${diffStr}</td><td>${pctStr}</td></tr>`;
+  });
+  tableHtml += '</tbody></table>';
+  return `${statsHtml}<div class="drill-chart-box"><canvas id="drillCanvas" style="max-height:200px;"></canvas></div>${tableHtml}`;
+}
+function renderDrillChart(dim, key) {
+  const canvas = document.getElementById('drillCanvas');
+  if(!canvas) return;
+  if(drillChartInst){drillChartInst.destroy();drillChartInst=null;}
+  const v = pvState.val;
+  let labels=[], data=[];
+  if(dim==='location') {
+    const loc = LOC_DATA.find(d=>d.location===key);
+    if(loc) { loc.months.forEach(m=>{labels.push(m.month);data.push(m[v]||0);}); }
+  } else if(dim==='category') {
+    const cat = CAT_DATA.find(c=>c.code===key);
+    if(cat) { cat.months.forEach(m=>{labels.push(m.m);data.push(m[v]||0);}); }
+  } else if(dim==='month') {
+    LOC_DATA.forEach(loc=>{
+      const md=loc.months.find(m=>m.month===key);
+      if(md){labels.push(loc.location.substring(0,20));data.push(md[v]||0);}
+    });
+  }
+  drillChartInst = new Chart(canvas,{type:dim==='month'?'bar':'line',data:{labels,datasets:[{label:v==='amount'?'Bal Amount':'Bal QTY',data,borderColor:'#4f46e5',backgroundColor:dim==='month'?'#c7d2fe':'rgba(79,70,229,.1)',fill:dim!=='month',tension:0.4,pointRadius:4,borderWidth:2,borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:vl=>(v==='amount'?'฿':'')+fmt(vl)}}}}});
+}
+
+// ========== INIT PIVOT ==========
+function initPivot() {
+  initPivotToolbar();
+}
+
+// ========== INIT ==========
+document.getElementById('upd').textContent = new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+renderCards();
+renderOverviewCharts();
+renderLocChips();
+renderLocChart();
+renderLocMonthTabs();
+renderLocTable();
+renderCatMonthTabs();
+renderCatTable();
+initPivot();
+</script>
+</body>
+</html>
