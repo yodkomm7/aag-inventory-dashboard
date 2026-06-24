@@ -174,7 +174,7 @@
       <span style="font-size:.75rem;opacity:.6;margin-right:4px;">ปี:</span>
       <button class="year-btn" data-year="all" onclick="setYear(null)">ทั้งหมด</button>
       <button class="year-btn" data-year="2025" onclick="setYear('2025')">2025</button>
-      <button class="year-btn active" data-year="2026" onclick="setYear('2026')">2026</button>
+      <button class="year-btn" data-year="2026" onclick="setYear('2026')">2026</button>
     </div>
     <div style="font-size:.7rem;color:#9ca3af;padding:4px 10px;background:rgba(255,255,255,.07);border-radius:6px;letter-spacing:.3px;">📊 SKU: 18 เดือน</div>
     <div style="font-size:.75rem;opacity:.6;">อัปเดต: <span id="upd"></span></div>
@@ -1155,7 +1155,7 @@ const CAT_DATA = [
 ];
 
 // ========== STATE ==========
-let selectedYear = '2026'; // default ปีปัจจุบัน | null = ทั้งหมด | '2025'
+let selectedYear = MONTHS[MONTHS.length - 1].split(' ')[1]; // ปีล่าสุดใน data อัตโนมัติ
 function getVisibleMonths() {
   if (!selectedYear) return MONTHS;
   return MONTHS.filter(m => m.endsWith(selectedYear));
@@ -1954,12 +1954,5 @@ function initPivot() {
 
 // ========== INIT ==========
 document.getElementById('upd').textContent = new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
-renderCards();
-renderOverviewCharts();
-renderLocChips();
-renderLocChart();
-renderLocMonthTabs();
-renderLocTable();
-renderCatMonthTabs();
-renderCatTable();
-init
+// Set active year button to match selectedYear (ปีล่าสุดใน data)
+document.querySelectorAll('.year-btn').forEach(b => b.classLis
