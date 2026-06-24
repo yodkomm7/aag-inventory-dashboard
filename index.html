@@ -166,12 +166,7 @@
       <button class="year-btn" data-year="2025" onclick="setYear('2025')">2025</button>
       <button class="year-btn" data-year="2026" onclick="setYear('2026')">2026</button>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;">
-      <button class="import-btn" id="importBtn" onclick="triggerSKUImport()" title="นำเข้าข้อมูล SKU จาก AAG_SKU_Master.xlsx">
-        📂 นำเข้า SKU Data
-      </button>
-      <input type="file" id="skuFileInput" accept=".xlsx" style="display:none" onchange="handleSKUImport(this)">
-    </div>
+    <div style="font-size:.7rem;color:#9ca3af;padding:4px 10px;background:rgba(255,255,255,.07);border-radius:6px;letter-spacing:.3px;">📊 SKU: 18 เดือน</div>
     <div style="font-size:.75rem;opacity:.6;">อัปเดต: <span id="upd"></span></div>
   </div>
 </div>
@@ -1813,129 +1808,28 @@ MONTHS.forEach(m => {
 });
 const KEY_TO_MONTH = Object.fromEntries(Object.entries(MONTH_TO_KEY).map(([k,v])=>[v,k]));
 
-// ===== IndexedDB persistence for SKU data =====
-const IDB_NAME = 'aag-sku-db', IDB_VER = 1, IDB_STORE = 'months';
-let _db = null;
-function getDB() {
-  if(_db) return Promise.resolve(_db);
-  return new Promise((res,rej)=>{
-    const req = indexedDB.open(IDB_NAME, IDB_VER);
-    req.onupgradeneeded = e => {
-      if(!e.target.result.objectStoreNames.contains(IDB_STORE))
-        e.target.result.createObjectStore(IDB_STORE, {keyPath:'month'});
-    };
-    req.onsuccess = e => { _db = e.target.result; res(_db); };
-    req.onerror = e => rej(e.target.error);
-  });
-}
-async function idbPut(month, rows) {
-  const db = await getDB();
-  return new Promise((res,rej)=>{
-    const tx = db.transaction(IDB_STORE,'readwrite');
-    tx.objectStore(IDB_STORE).put({month, rows});
-    tx.oncomplete = res; tx.onerror = e=>rej(e.target.error);
-  });
-}
-async function idbGet(month) {
-  const db = await getDB();
-  return new Promise((res,rej)=>{
-    const req = db.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).get(month);
-    req.onsuccess = e => res(e.target.result?.rows || null);
-    req.onerror = e => rej(e.target.error);
-  });
-}
-async function idbKeys() {
-  const db = await getDB();
-  return new Promise((res,rej)=>{
-    const req = db.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).getAllKeys();
-    req.onsuccess = e => res(e.target.result || []);
-    req.onerror = e => rej(e.target.error);
-  });
-}
-async function idbClear() {
-  const db = await getDB();
-  return new Promise((res,rej)=>{
-    const tx = db.transaction(IDB_STORE,'readwrite');
-    tx.objectStore(IDB_STORE).clear();
-    tx.oncomplete = res; tx.onerror = e=>rej(e.target.error);
-  });
-}
-
-function triggerSKUImport() { document.getElementById('skuFileInput').click(); }
-
-async function handleSKUImport(input) {
-  const file = input.files[0]; if(!file) return;
-  input.value = '';
-  const btn = document.getElementById('importBtn');
-  const origHTML = btn.innerHTML;
-  btn.innerHTML = '⏳ กำลังโหลด...'; btn.disabled = true;
+// ===== SKU Data — GitHub-hosted JSON (gzip compressed) =====
+const skuCache = {};
+async function fetchSKU(monthKey) {
+  if(skuCache[monthKey]) return skuCache[monthKey];
   try {
-    if(typeof XLSX === 'undefined') throw new Error('SheetJS ยังไม่โหลด กรุณาลองใหม่');
-    const buf = await file.arrayBuffer();
-    const wb = XLSX.read(buf, {type:'array'});
-    const sheetName = wb.SheetNames.find(n=>n.includes('SKU')) || wb.SheetNames[0];
-    const ws = wb.Sheets[sheetName];
-    if(!ws) throw new Error('ไม่พบ sheet ข้อมูล SKU');
-
-    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-    if(rows.length < 2) throw new Error('ไม่มีข้อมูลในไฟล์');
-
-    const hdr = rows[0].map(h=>String(h).toLowerCase().trim());
-    const col = name => hdr.findIndex(h=>h.includes(name));
-    const iMonth = col('month')>=0?col('month'):col('เดือน');
-    const iLoc   = col('loc')>=0?col('loc'):col('รหัสคลัง');
-    const iCat   = col('cat')>=0?col('cat'):col('รหัสกลุ่ม');
-    const iCatn  = col('catn')>=0?col('catn'):col('ชื่อกลุ่ม');
-    const iSku   = col('sku')>=0?col('sku'):col('รหัสสินค้า');
-    const iSkun  = col('skun')>=0?col('skun'):col('ชื่อสินค้า');
-    const iUnit  = col('unit')>=0?col('unit'):col('หน่วย');
-    const iQty   = col('qty')>=0?col('qty'):col('จำนวน');
-    const iAmt   = col('amt')>=0?col('amt'):col('มูลค่า');
-    if(iMonth<0||iLoc<0||iSku<0) throw new Error('ไม่พบ columns ที่จำเป็น (month, loc, sku)');
-
-    // Group rows by month
-    const byMonth = {};
-    let total = 0;
-    for(let i=1;i<rows.length;i++){
-      const r = rows[i];
-      const mk = String(r[iMonth]||'').trim(); if(!mk) continue;
-      const lc = String(r[iLoc]||'').trim();
-      if(!OUR_LOC_CODES.includes(lc)) continue;
-      if(!byMonth[mk]) byMonth[mk] = [];
-      byMonth[mk].push({
-        loc:lc, cat:String(r[iCat]||'').trim(), catn:String(r[iCatn]||'').trim(),
-        sku:String(r[iSku]||'').trim(), skun:String(r[iSkun]||'').trim(),
-        unit:String(r[iUnit]||'').trim(), qty:parseFloat(r[iQty])||0, amt:parseFloat(r[iAmt])||0
-      });
-      total++;
+    const resp = await fetch(`sku/${monthKey}.json.gz`, {cache:'no-store'});
+    if(!resp.ok) return null;
+    // Decompress gzip using DecompressionStream API
+    const ds = new DecompressionStream('gzip');
+    const decompressed = resp.body.pipeThrough(ds);
+    const reader = decompressed.getReader();
+    const chunks = [];
+    while(true) {
+      const {done, value} = await reader.read();
+      if(done) break;
+      chunks.push(value);
     }
-
-    // Save each month to IndexedDB (replace existing)
-    await idbClear();
-    const saves = Object.entries(byMonth).map(([m,rs])=>idbPut(m,rs));
-    await Promise.all(saves);
-
-    const monthsLoaded = Object.keys(byMonth).sort();
-    btn.innerHTML = origHTML; btn.disabled = false;
-    await refreshImportBadge();
-    alert(`✅ บันทึกสำเร็จ! (จะคงอยู่แม้ refresh)\n\nข้อมูล: ${total.toLocaleString()} rows\nเดือน: ${monthsLoaded.length} เดือน (${monthsLoaded[0]} ถึง ${monthsLoaded[monthsLoaded.length-1]})\n\n💡 คลิกที่ตัวเลขใน Pivot → Location × Month เพื่อดู SKU`);
-  } catch(e) {
-    btn.innerHTML = origHTML; btn.disabled = false;
-    alert('❌ ' + e.message);
-  }
-}
-
-async function refreshImportBadge() {
-  const months = await idbKeys().catch(()=>[]);
-  const btn = document.getElementById('importBtn');
-  if(!btn) return;
-  const ex = btn.querySelector('.sku-badge'); if(ex) ex.remove();
-  if(months.length) {
-    const b = document.createElement('span');
-    b.className = 'sku-badge';
-    b.textContent = months.length + ' เดือน';
-    btn.appendChild(b);
-  }
+    const text = await new Blob(chunks).text();
+    const data = JSON.parse(text);
+    skuCache[monthKey] = data;
+    return data;
+  } catch(e) { return null; }
 }
 
 function openDrillCell(locKey, monthKey, locLabel, monthLabel) {
@@ -1951,35 +1845,36 @@ function openDrillCell(locKey, monthKey, locLabel, monthLabel) {
 
 async function buildSKUContent(locKey, monthKey, locLabel, monthLabel) {
   const locCode = LOC_NAME_TO_CODE[locKey] || locKey;
-  const monthData = await idbGet(monthKey).catch(()=>null);
+  const monthData = await fetchSKU(monthKey);
 
   if(!monthData) {
-    const avail = (await idbKeys().catch(()=>[])).sort();
-    const mLabel = KEY_TO_MONTH[monthKey] || monthKey;
     return `<div class="sku-nodata">
       <div class="sku-nodata-icon">📂</div>
-      <p>ยังไม่ได้ Import ข้อมูล SKU สำหรับ <b>${mLabel}</b></p>
-      ${avail.length?`<p class="hint">ข้อมูลที่มี: ${avail.map(k=>KEY_TO_MONTH[k]||k).join(', ')}</p>`:'<p class="hint">ยังไม่มีข้อมูล SKU</p>'}
-      <button onclick="triggerSKUImport()">📂 นำเข้า AAG_SKU_Master.xlsx</button>
+      <p>ไม่พบข้อมูล SKU สำหรับ <b>${KEY_TO_MONTH[monthKey]||monthKey}</b></p>
     </div>`;
   }
 
-  const locData = monthData.filter(r=>r.loc===locCode);
+  // Format: [loc, cat, catn, sku, skun, unit, qty, amt] (indices 0-7)
+  // Filter by location, exclude RM.AA group
+  const locData = monthData.filter(r => r[0] === locCode && r[1].slice(0,5) !== 'RM.AA');
+
   if(!locData.length) {
     return `<div class="sku-nodata"><div class="sku-nodata-icon">🔍</div><p>ไม่พบข้อมูล SKU สำหรับคลัง <b>${locLabel}</b> ในเดือนนี้</p></div>`;
   }
 
-  // Aggregate by category
+  // Group by 5-digit category prefix
   const byCat = {};
-  locData.forEach(r=>{
-    if(!byCat[r.cat]) byCat[r.cat]={catn:r.catn,items:[],totAmt:0,totQty:0};
-    byCat[r.cat].items.push(r);
-    byCat[r.cat].totAmt += r.amt;
-    byCat[r.cat].totQty += r.qty;
+  locData.forEach(r => {
+    const prefix = r[1].slice(0,5);
+    if(!byCat[prefix]) byCat[prefix] = {catn: r[1]===prefix ? r[2] : prefix, items:[], totAmt:0, totQty:0};
+    if(r[1]===prefix && byCat[prefix].catn===prefix) byCat[prefix].catn = r[2];
+    byCat[prefix].items.push(r);
+    byCat[prefix].totAmt += r[7];
+    byCat[prefix].totQty += r[6];
   });
 
-  const totAmt = locData.reduce((s,r)=>s+r.amt,0);
-  const totQty = locData.reduce((s,r)=>s+r.qty,0);
+  const totAmt = locData.reduce((s,r)=>s+r[7],0);
+  const totQty = locData.reduce((s,r)=>s+r[6],0);
 
   let html = `<div class="sku-stats">
     <div class="sku-stat"><div class="sku-stat-label">มูลค่ารวม</div><div class="sku-stat-val">฿${fmt(totAmt)}</div></div>
@@ -1998,13 +1893,13 @@ async function buildSKUContent(locKey, monthKey, locLabel, monthLabel) {
         </summary>
         <table class="sku-tbl">
           <thead><tr><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>หน่วย</th><th>QTY</th><th>มูลค่า</th></tr></thead>
-          <tbody>${catInfo.items.sort((a,b)=>b.amt-a.amt).map(r=>`
+          <tbody>${catInfo.items.sort((a,b)=>b[7]-a[7]).map(r=>`
             <tr>
-              <td>${r.sku}</td>
-              <td title="${r.skun}">${r.skun.length>45?r.skun.substring(0,45)+'…':r.skun}</td>
-              <td style="text-align:center;">${r.unit}</td>
-              <td>${r.qty.toLocaleString()}</td>
-              <td>฿${fmt(r.amt)}</td>
+              <td>${r[3]}</td>
+              <td title="${r[4]}">${r[4].length>45?r[4].substring(0,45)+'…':r[4]}</td>
+              <td style="text-align:center;">${r[5]}</td>
+              <td>${r[6].toLocaleString()}</td>
+              <td>฿${fmt(r[7])}</td>
             </tr>`).join('')}
           </tbody>
         </table>
@@ -2031,7 +1926,6 @@ renderLocTable();
 renderCatMonthTabs();
 renderCatTable();
 initPivot();
-refreshImportBadge(); // restore badge from IndexedDB after refresh
 </script>
 </body>
-</html>
+</html>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
