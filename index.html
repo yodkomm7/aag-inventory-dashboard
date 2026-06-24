@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AAG Corporation — Inventory Dashboard 2025–2026</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f2f5; color: #1a1a2e; font-size: 15px; }
@@ -118,6 +119,37 @@
   .year-btn { background:rgba(255,255,255,.12); color:rgba(255,255,255,.85); border:1px solid rgba(255,255,255,.25); border-radius:20px; padding:5px 14px; font-size:.82rem; cursor:pointer; transition:all .15s; }
   .year-btn:hover { background:rgba(255,255,255,.22); }
   .year-btn.active { background:#4f46e5; color:white; border-color:#4f46e5; font-weight:600; }
+
+  /* ===== SKU IMPORT ===== */
+  .import-btn { background:rgba(255,255,255,.13); color:white; border:1px solid rgba(255,255,255,.28); border-radius:8px; padding:7px 15px; font-size:.83rem; cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:6px; white-space:nowrap; }
+  .import-btn:hover { background:rgba(255,255,255,.23); }
+  .sku-badge { font-size:.7rem; background:#10b981; color:white; padding:1px 7px; border-radius:99px; font-weight:700; }
+  /* SKU Drill-down panel content */
+  .sku-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
+  .sku-stat { background:#f9fafb; border-radius:8px; padding:11px 13px; }
+  .sku-stat-label { font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; color:#9ca3af; margin-bottom:3px; }
+  .sku-stat-val { font-size:1.05rem; font-weight:700; color:#1a1a2e; }
+  .sku-section { margin-top:4px; }
+  .sku-cat-summary { display:flex; justify-content:space-between; align-items:center; padding:9px 12px; background:#f3f4f6; border-radius:7px; cursor:pointer; font-size:.88rem; font-weight:600; user-select:none; }
+  .sku-cat-summary::-webkit-details-marker { display:none; }
+  .sku-cat-summary::before { content:'▶'; font-size:.65rem; color:#9ca3af; margin-right:6px; transition:transform .15s; }
+  details[open] > .sku-cat-summary::before { transform:rotate(90deg); }
+  .sku-cat-code { font-size:.7rem; color:#9ca3af; font-family:monospace; margin-right:5px; }
+  .sku-cat-amt { color:#4f46e5; font-size:.88rem; }
+  .sku-pct { color:#9ca3af; font-weight:400; font-size:.75rem; }
+  .sku-tbl { width:100%; border-collapse:collapse; font-size:.82rem; margin:4px 0 10px; }
+  .sku-tbl th { background:#f9fafb; padding:6px 10px; border-bottom:1px solid #e5e7eb; text-align:right; color:#9ca3af; font-weight:600; font-size:.74rem; text-transform:uppercase; }
+  .sku-tbl th:first-child,.sku-tbl th:nth-child(2) { text-align:left; }
+  .sku-tbl td { padding:6px 10px; border-bottom:1px solid #f9fafb; text-align:right; vertical-align:top; }
+  .sku-tbl td:first-child { font-family:monospace; font-size:.78rem; color:#374151; text-align:left; white-space:nowrap; }
+  .sku-tbl td:nth-child(2) { text-align:left; color:#6b7280; max-width:220px; }
+  .sku-nodata { text-align:center; padding:32px 20px; color:#9ca3af; }
+  .sku-nodata-icon { font-size:2.2rem; margin-bottom:10px; }
+  .sku-nodata p { margin-bottom:10px; line-height:1.6; font-size:.9rem; }
+  .sku-nodata .hint { font-size:.8rem; color:#d1d5db; }
+  .sku-nodata button { background:#4f46e5; color:white; border:none; border-radius:8px; padding:9px 22px; font-size:.9rem; cursor:pointer; margin-top:6px; }
+  .cell-drillable { cursor:pointer; }
+  .cell-drillable:hover { background:rgba(79,70,229,.07) !important; color:#4f46e5; }
 </style>
 </head>
 <body>
@@ -133,6 +165,12 @@
       <button class="year-btn active" data-year="all" onclick="setYear(null)">ทั้งหมด</button>
       <button class="year-btn" data-year="2025" onclick="setYear('2025')">2025</button>
       <button class="year-btn" data-year="2026" onclick="setYear('2026')">2026</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="import-btn" id="importBtn" onclick="triggerSKUImport()" title="นำเข้าข้อมูล SKU จาก AAG_SKU_Master.xlsx">
+        📂 นำเข้า SKU Data
+      </button>
+      <input type="file" id="skuFileInput" accept=".xlsx" style="display:none" onchange="handleSKUImport(this)">
     </div>
     <div style="font-size:.75rem;opacity:.6;">อัปเดต: <span id="upd"></span></div>
   </div>
@@ -1639,7 +1677,16 @@ function renderPivot() {
       const diff = (showDiff&&prevV!=null&&v!=null) ? v-prevV : null;
       const diffHtml = diff!=null ? `<div style="font-size:.65rem;color:${diff>=0?'#ef4444':'#10b981'};margin-top:1px;">${diff>=0?'▲':'▼'}${pvState.val==='amount'?'฿':''}${fmt(Math.abs(diff))}</div>` : '';
       if(v!=null) colTotals[ck.key]=(colTotals[ck.key]||0)+v;
-      html += `<td style="${bg}">${display}${diffHtml}</td>`;
+      // Make cells drillable when row=location × col=month
+      const canDrill = rowDim==='location' && colDim==='month' && v!=null;
+      if(canDrill) {
+        const mk = MONTH_TO_KEY[ck.key]||ck.key;
+        const rk_esc = rk.key.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        const rl_esc = rk.label.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        html += `<td class="cell-drillable" style="${bg}" onclick="openDrillCell('${rk_esc}','${mk}','${rl_esc}','${ck.label}')" title="🔍 คลิกดู SKU">${display}${diffHtml}</td>`;
+      } else {
+        html += `<td style="${bg}">${display}${diffHtml}</td>`;
+      }
     });
     if(showTotal) {
       const tbg = useHeat&&rowTotal>0 ? `background:${heatColor(rowTotal/maxVal,0.35)};` : '';
@@ -1736,6 +1783,192 @@ function renderDrillChart(dim, key) {
     });
   }
   drillChartInst = new Chart(canvas,{type:dim==='month'?'bar':'line',data:{labels,datasets:[{label:v==='amount'?'Bal Amount':'Bal QTY',data,borderColor:'#4f46e5',backgroundColor:dim==='month'?'#c7d2fe':'rgba(79,70,229,.1)',fill:dim!=='month',tension:0.4,pointRadius:4,borderWidth:2,borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:vl=>(v==='amount'?'฿':'')+fmt(vl)}}}}});
+}
+
+// ========== SKU IMPORT & DRILL-DOWN ==========
+const OUR_LOC_CODES = ['SMC','SMP','SMM','SMS','SMF','SMM-1952','SMM-1953','SMM-2103','SMM-2107','SMM-2115','SMM-2211','SMM-2213','SMM-2319','SMM-2408','SMM-2412','SMM-2513'];
+
+const LOC_NAME_TO_CODE = {
+  'SMM-1952 Mulberry Villa phase1':'SMM-1952',
+  'SMM-1953 Mulberry Grove Villas (Phase 2) Bangna':'SMM-1953',
+  'SMM-2103 Mulberry สุขุมวิท 65':'SMM-2103',
+  'SMM-2107 Mulberry Grove Condo':'SMM-2107',
+  'SMM-2115 Dusit Centralpark':'SMM-2115',
+  'SMM-2211 Scope Langsuan':'SMM-2211',
+  'SMM-2213 Scope Thonglor':'SMM-2213',
+  'SMM-2319 UOB SATHON':'SMM-2319',
+  'SMM-2408 วันเวลา ณ เจ้าพระยา':'SMM-2408',
+  'SMM-2412 Benchasiri Alliance Hotel':'SMM-2412',
+  'SMM-2513 THE HAPPITAT AT FORESTIAS':'SMM-2513',
+  'Store Center':'SMC','Store Finished Goods':'SMF',
+  'Store Movement (โครงการดำเนินการอยู่)':'SMM',
+  'Store Production':'SMP','Store โรงพ่นสี':'SMS'
+};
+
+const MONTH_TO_KEY = {};
+MONTHS.forEach(m => {
+  const parts = m.split(' ');
+  const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].indexOf(parts[0])+1;
+  MONTH_TO_KEY[m] = `${parts[1]}-${String(mon).padStart(2,'0')}`;
+});
+const KEY_TO_MONTH = Object.fromEntries(Object.entries(MONTH_TO_KEY).map(([k,v])=>[v,k]));
+
+// In-memory SKU store: { 'YYYY-MM': [ {loc,cat,catn,sku,skun,unit,qty,amt}, ... ] }
+let skuStore = {};
+
+function triggerSKUImport() { document.getElementById('skuFileInput').click(); }
+
+async function handleSKUImport(input) {
+  const file = input.files[0]; if(!file) return;
+  input.value = '';
+  const btn = document.getElementById('importBtn');
+  const origHTML = btn.innerHTML;
+  btn.innerHTML = '⏳ กำลังโหลด...'; btn.disabled = true;
+  try {
+    if(typeof XLSX === 'undefined') throw new Error('SheetJS ยังไม่โหลด กรุณาลองใหม่');
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, {type:'array'});
+    const sheetName = wb.SheetNames.find(n=>n.includes('SKU')) || wb.SheetNames[0];
+    const ws = wb.Sheets[sheetName];
+    if(!ws) throw new Error('ไม่พบ sheet ข้อมูล SKU');
+
+    // Read with header row; auto-detect column positions
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+    if(rows.length < 2) throw new Error('ไม่มีข้อมูลในไฟล์');
+
+    // Find columns by header name
+    const hdr = rows[0].map(h=>String(h).toLowerCase().trim());
+    const col = name => hdr.findIndex(h=>h.includes(name));
+    const iMonth = col('month') >= 0 ? col('month') : col('เดือน');
+    const iLoc   = col('loc') >= 0 ? col('loc') : col('รหัสคลัง');
+    const iCat   = col('cat') >= 0 ? col('cat') : col('รหัสกลุ่ม');
+    const iCatn  = col('catn') >= 0 ? col('catn') : col('ชื่อกลุ่ม');
+    const iSku   = col('sku') >= 0 ? col('sku') : col('รหัสสินค้า');
+    const iSkun  = col('skun') >= 0 ? col('skun') : col('ชื่อสินค้า');
+    const iUnit  = col('unit') >= 0 ? col('unit') : col('หน่วย');
+    const iQty   = col('qty') >= 0 ? col('qty') : col('จำนวน');
+    const iAmt   = col('amt') >= 0 ? col('amt') : col('มูลค่า');
+    if(iMonth<0||iLoc<0||iSku<0) throw new Error('ไม่พบ columns ที่จำเป็น (month, loc, sku)');
+
+    // Reset store and rebuild
+    skuStore = {};
+    let total = 0;
+    for(let i=1;i<rows.length;i++){
+      const r = rows[i];
+      const monthKey = String(r[iMonth]||'').trim();
+      if(!monthKey) continue;
+      const locCode = String(r[iLoc]||'').trim();
+      if(!OUR_LOC_CODES.includes(locCode)) continue;
+      if(!skuStore[monthKey]) skuStore[monthKey] = [];
+      skuStore[monthKey].push({
+        loc: locCode,
+        cat: String(r[iCat]||'').trim(),
+        catn: String(r[iCatn]||'').trim(),
+        sku: String(r[iSku]||'').trim(),
+        skun: String(r[iSkun]||'').trim(),
+        unit: String(r[iUnit]||'').trim(),
+        qty: parseFloat(r[iQty])||0,
+        amt: parseFloat(r[iAmt])||0
+      });
+      total++;
+    }
+    const monthsLoaded = Object.keys(skuStore).sort();
+    btn.innerHTML = origHTML;
+    btn.disabled = false;
+    refreshImportBadge();
+    alert(`✅ โหลดสำเร็จ!\n\nข้อมูล: ${total.toLocaleString()} rows\nเดือน: ${monthsLoaded.length} เดือน (${monthsLoaded[0]} ถึง ${monthsLoaded[monthsLoaded.length-1]})\n\n💡 คลิกที่ตัวเลขในตาราง Pivot (Location × Month) เพื่อดู SKU breakdown`);
+  } catch(e) {
+    btn.innerHTML = origHTML; btn.disabled = false;
+    alert('❌ ' + e.message);
+  }
+}
+
+function refreshImportBadge() {
+  const months = Object.keys(skuStore);
+  const btn = document.getElementById('importBtn');
+  if(!btn) return;
+  const ex = btn.querySelector('.sku-badge');
+  if(ex) ex.remove();
+  if(months.length) {
+    const b = document.createElement('span');
+    b.className = 'sku-badge';
+    b.textContent = months.length + ' เดือน';
+    btn.appendChild(b);
+  }
+}
+
+function openDrillCell(locKey, monthKey, locLabel, monthLabel) {
+  document.getElementById('drillOverlay').style.display = 'block';
+  document.getElementById('drillPanel').style.display = 'flex';
+  document.getElementById('drillTitle').textContent = locLabel + ' — ' + monthLabel;
+  document.getElementById('drillBody').innerHTML = buildSKUContent(locKey, monthKey, locLabel, monthLabel);
+  if(drillChartInst){drillChartInst.destroy();drillChartInst=null;}
+}
+
+function buildSKUContent(locKey, monthKey, locLabel, monthLabel) {
+  const locCode = LOC_NAME_TO_CODE[locKey] || locKey;
+  const monthData = skuStore[monthKey];
+
+  if(!monthData) {
+    const avail = Object.keys(skuStore).sort();
+    const mLabel = KEY_TO_MONTH[monthKey] || monthKey;
+    return `<div class="sku-nodata">
+      <div class="sku-nodata-icon">📂</div>
+      <p>ยังไม่ได้ Import ข้อมูล SKU สำหรับ <b>${mLabel}</b></p>
+      ${avail.length ? `<p class="hint">ข้อมูลที่โหลดแล้ว: ${avail.map(k=>KEY_TO_MONTH[k]||k).join(', ')}</p>` : '<p class="hint">ยังไม่มีข้อมูล SKU</p>'}
+      <button onclick="triggerSKUImport()">📂 นำเข้า AAG_SKU_Master.xlsx</button>
+    </div>`;
+  }
+
+  const locData = monthData.filter(r=>r.loc===locCode);
+  if(!locData.length) {
+    return `<div class="sku-nodata"><div class="sku-nodata-icon">🔍</div><p>ไม่พบข้อมูล SKU สำหรับคลัง <b>${locLabel}</b> ในเดือนนี้</p></div>`;
+  }
+
+  // Aggregate by category
+  const byCat = {};
+  locData.forEach(r=>{
+    if(!byCat[r.cat]) byCat[r.cat]={catn:r.catn,items:[],totAmt:0,totQty:0};
+    byCat[r.cat].items.push(r);
+    byCat[r.cat].totAmt += r.amt;
+    byCat[r.cat].totQty += r.qty;
+  });
+
+  const totAmt = locData.reduce((s,r)=>s+r.amt,0);
+  const totQty = locData.reduce((s,r)=>s+r.qty,0);
+
+  let html = `<div class="sku-stats">
+    <div class="sku-stat"><div class="sku-stat-label">มูลค่ารวม</div><div class="sku-stat-val">฿${fmt(totAmt)}</div></div>
+    <div class="sku-stat"><div class="sku-stat-label">จำนวนรวม</div><div class="sku-stat-val">${fmt(totQty)}</div></div>
+    <div class="sku-stat"><div class="sku-stat-label">จำนวน SKU</div><div class="sku-stat-val">${locData.length.toLocaleString()}</div></div>
+  </div><div class="sku-section">`;
+
+  Object.entries(byCat)
+    .sort(([,a],[,b])=>b.totAmt-a.totAmt)
+    .forEach(([catCode,catInfo],ci)=>{
+      const pct = totAmt>0?(catInfo.totAmt/totAmt*100).toFixed(1):0;
+      html += `<details ${ci<3?'open':''} style="margin-bottom:6px;">
+        <summary class="sku-cat-summary">
+          <span><span class="sku-cat-code">${catCode}</span>${catInfo.catn}</span>
+          <span class="sku-cat-amt">฿${fmt(catInfo.totAmt)} <span class="sku-pct">(${pct}%)</span></span>
+        </summary>
+        <table class="sku-tbl">
+          <thead><tr><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>หน่วย</th><th>QTY</th><th>มูลค่า</th></tr></thead>
+          <tbody>${catInfo.items.sort((a,b)=>b.amt-a.amt).map(r=>`
+            <tr>
+              <td>${r.sku}</td>
+              <td title="${r.skun}">${r.skun.length>45?r.skun.substring(0,45)+'…':r.skun}</td>
+              <td style="text-align:center;">${r.unit}</td>
+              <td>${r.qty.toLocaleString()}</td>
+              <td>฿${fmt(r.amt)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </details>`;
+    });
+
+  html += '</div>';
+  return html;
 }
 
 // ========== INIT PIVOT ==========
