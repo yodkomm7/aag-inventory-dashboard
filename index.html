@@ -94,7 +94,7 @@
   .heatmap-cell { position: relative; }
   /* Drill-down panel */
   .drill-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 100; }
-  .drill-panel { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 100vw); background: white; box-shadow: -4px 0 24px rgba(0,0,0,.15); z-index: 101; overflow-y: auto; display: none; flex-direction: column; }
+  .drill-panel { position: fixed; top: 0; right: 0; bottom: 0; width: min(820px, 100vw); background: white; box-shadow: -4px 0 24px rgba(0,0,0,.15); z-index: 101; overflow-y: auto; display: none; flex-direction: column; }
   .drill-header { padding: 20px 24px 16px; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; justify-content: space-between; }
   .drill-title { font-size: 1.05rem; font-weight: 700; color: #1a1a2e; }
   .drill-close { width: 34px; height: 34px; border-radius: 50%; border: 1px solid #e5e7eb; background: white; cursor: pointer; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; color: #6b7280; }
@@ -142,12 +142,17 @@
   .sku-cat-code { font-size:.7rem; color:#9ca3af; font-family:monospace; margin-right:5px; }
   .sku-cat-amt { color:#4f46e5; font-size:.88rem; }
   .sku-pct { color:#9ca3af; font-weight:400; font-size:.75rem; }
-  .sku-tbl { width:100%; border-collapse:collapse; font-size:.82rem; margin:4px 0 10px; }
-  .sku-tbl th { background:#f9fafb; padding:6px 10px; border-bottom:1px solid #e5e7eb; text-align:right; color:#9ca3af; font-weight:600; font-size:.74rem; text-transform:uppercase; }
+  .sku-tbl { width:100%; border-collapse:collapse; font-size:.82rem; margin:4px 0 10px; table-layout:fixed; }
+  .sku-tbl colgroup col:nth-child(1) { width:170px; }
+  .sku-tbl colgroup col:nth-child(2) { width:auto; }
+  .sku-tbl colgroup col:nth-child(3) { width:52px; }
+  .sku-tbl colgroup col:nth-child(4) { width:75px; }
+  .sku-tbl colgroup col:nth-child(5) { width:95px; }
+  .sku-tbl th { background:#f9fafb; padding:6px 10px; border-bottom:1px solid #e5e7eb; text-align:right; color:#9ca3af; font-weight:600; font-size:.74rem; text-transform:uppercase; overflow:hidden; }
   .sku-tbl th:first-child,.sku-tbl th:nth-child(2) { text-align:left; }
-  .sku-tbl td { padding:6px 10px; border-bottom:1px solid #f9fafb; text-align:right; vertical-align:top; }
-  .sku-tbl td:first-child { font-family:monospace; font-size:.78rem; color:#374151; text-align:left; white-space:nowrap; }
-  .sku-tbl td:nth-child(2) { text-align:left; color:#6b7280; max-width:220px; }
+  .sku-tbl td { padding:6px 10px; border-bottom:1px solid #f9fafb; text-align:right; vertical-align:top; overflow:hidden; }
+  .sku-tbl td:first-child { font-family:monospace; font-size:.78rem; color:#374151; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sku-tbl td:nth-child(2) { text-align:left; color:#6b7280; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .sku-nodata { text-align:center; padding:32px 20px; color:#9ca3af; }
   .sku-nodata-icon { font-size:2.2rem; margin-bottom:10px; }
   .sku-nodata p { margin-bottom:10px; line-height:1.6; font-size:.9rem; }
@@ -167,9 +172,9 @@
   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
     <div class="year-filter">
       <span style="font-size:.75rem;opacity:.6;margin-right:4px;">ปี:</span>
-      <button class="year-btn active" data-year="all" onclick="setYear(null)">ทั้งหมด</button>
+      <button class="year-btn" data-year="all" onclick="setYear(null)">ทั้งหมด</button>
       <button class="year-btn" data-year="2025" onclick="setYear('2025')">2025</button>
-      <button class="year-btn" data-year="2026" onclick="setYear('2026')">2026</button>
+      <button class="year-btn active" data-year="2026" onclick="setYear('2026')">2026</button>
     </div>
     <div style="font-size:.7rem;color:#9ca3af;padding:4px 10px;background:rgba(255,255,255,.07);border-radius:6px;letter-spacing:.3px;">📊 SKU: 18 เดือน</div>
     <div style="font-size:.75rem;opacity:.6;">อัปเดต: <span id="upd"></span></div>
@@ -1150,7 +1155,7 @@ const CAT_DATA = [
 ];
 
 // ========== STATE ==========
-let selectedYear = null; // null = ทั้งหมด | '2025' | '2026'
+let selectedYear = '2026'; // default ปีปัจจุบัน | null = ทั้งหมด | '2025'
 function getVisibleMonths() {
   if (!selectedYear) return MONTHS;
   return MONTHS.filter(m => m.endsWith(selectedYear));
@@ -1923,11 +1928,12 @@ async function buildSKUContent(locKey, monthKey, locLabel, monthLabel) {
           <span class="sku-cat-amt">฿${fmt(catInfo.totAmt)} <span class="sku-pct">(${pct}%)</span></span>
         </summary>
         <table class="sku-tbl">
-          <thead><tr><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>หน่วย</th><th>QTY</th><th>มูลค่า</th></tr></thead>
+          <colgroup><col><col><col><col><col></colgroup>
+          <thead><tr><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th style="text-align:center;">หน่วย</th><th>QTY</th><th>มูลค่า</th></tr></thead>
           <tbody>${catInfo.items.sort((a,b)=>b[7]-a[7]).map(r=>`
             <tr>
-              <td>${r[3]}</td>
-              <td title="${r[4]}">${r[4].length>45?r[4].substring(0,45)+'…':r[4]}</td>
+              <td title="${r[3]}">${r[3]}</td>
+              <td title="${r[4]}">${r[4]}</td>
               <td style="text-align:center;">${r[5]}</td>
               <td>${r[6].toLocaleString()}</td>
               <td>฿${fmt(r[7])}</td>
@@ -1956,7 +1962,4 @@ renderLocMonthTabs();
 renderLocTable();
 renderCatMonthTabs();
 renderCatTable();
-initPivot();
-</script>
-</body>
-</html>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+init
