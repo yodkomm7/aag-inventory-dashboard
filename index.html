@@ -1984,4 +1984,54 @@ async function buildSKUContent(locKey, monthKey, locLabel, monthLabel) {
   let html = `<div class="sku-stats">
     <div class="sku-stat"><div class="sku-stat-label">มูลค่ารวม</div><div class="sku-stat-val">฿${fmt(totAmt)}</div></div>
     <div class="sku-stat"><div class="sku-stat-label">จำนวนรวม</div><div class="sku-stat-val">${fmt(totQty)}</div></div>
-    <div class="sku-stat"><div class="sku-stat-label">จำนวน SKU</div><div class
+    <div class="sku-stat"><div class="sku-stat-label">จำนวน SKU</div><div class="sku-stat-val">${locData.length.toLocaleString()}</div></div>
+  </div><div class="sku-section">`;
+
+  Object.entries(byCat)
+    .sort(([,a],[,b])=>b.totAmt-a.totAmt)
+    .forEach(([catCode,catInfo],ci)=>{
+      const pct = totAmt>0?(catInfo.totAmt/totAmt*100).toFixed(1):0;
+      html += `<details ${ci<3?'open':''} style="margin-bottom:6px;">
+        <summary class="sku-cat-summary">
+          <span><span class="sku-cat-code">${catCode}</span>${catInfo.catn}</span>
+          <span class="sku-cat-amt">฿${fmt(catInfo.totAmt)} <span class="sku-pct">(${pct}%)</span></span>
+        </summary>
+        <table class="sku-tbl">
+          <thead><tr><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>หน่วย</th><th>QTY</th><th>มูลค่า</th></tr></thead>
+          <tbody>${catInfo.items.sort((a,b)=>b.amt-a.amt).map(r=>`
+            <tr>
+              <td>${r.sku}</td>
+              <td title="${r.skun}">${r.skun.length>45?r.skun.substring(0,45)+'…':r.skun}</td>
+              <td style="text-align:center;">${r.unit}</td>
+              <td>${r.qty.toLocaleString()}</td>
+              <td>฿${fmt(r.amt)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </details>`;
+    });
+
+  html += '</div>';
+  return html;
+}
+
+// ========== INIT PIVOT ==========
+function initPivot() {
+  initPivotToolbar();
+}
+
+// ========== INIT ==========
+document.getElementById('upd').textContent = new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+renderCards();
+renderOverviewCharts();
+renderLocChips();
+renderLocChart();
+renderLocMonthTabs();
+renderLocTable();
+renderCatMonthTabs();
+renderCatTable();
+initPivot();
+refreshImportBadge(); // restore badge from IndexedDB after refresh
+</script>
+</body>
+</html>
