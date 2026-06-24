@@ -1813,8 +1813,53 @@ MONTHS.forEach(m => {
 });
 const KEY_TO_MONTH = Object.fromEntries(Object.entries(MONTH_TO_KEY).map(([k,v])=>[v,k]));
 
-// In-memory SKU store: { 'YYYY-MM': [ {loc,cat,catn,sku,skun,unit,qty,amt}, ... ] }
-let skuStore = {};
+// ===== IndexedDB persistence for SKU data =====
+const IDB_NAME = 'aag-sku-db', IDB_VER = 1, IDB_STORE = 'months';
+let _db = null;
+function getDB() {
+  if(_db) return Promise.resolve(_db);
+  return new Promise((res,rej)=>{
+    const req = indexedDB.open(IDB_NAME, IDB_VER);
+    req.onupgradeneeded = e => {
+      if(!e.target.result.objectStoreNames.contains(IDB_STORE))
+        e.target.result.createObjectStore(IDB_STORE, {keyPath:'month'});
+    };
+    req.onsuccess = e => { _db = e.target.result; res(_db); };
+    req.onerror = e => rej(e.target.error);
+  });
+}
+async function idbPut(month, rows) {
+  const db = await getDB();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(IDB_STORE,'readwrite');
+    tx.objectStore(IDB_STORE).put({month, rows});
+    tx.oncomplete = res; tx.onerror = e=>rej(e.target.error);
+  });
+}
+async function idbGet(month) {
+  const db = await getDB();
+  return new Promise((res,rej)=>{
+    const req = db.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).get(month);
+    req.onsuccess = e => res(e.target.result?.rows || null);
+    req.onerror = e => rej(e.target.error);
+  });
+}
+async function idbKeys() {
+  const db = await getDB();
+  return new Promise((res,rej)=>{
+    const req = db.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).getAllKeys();
+    req.onsuccess = e => res(e.target.result || []);
+    req.onerror = e => rej(e.target.error);
+  });
+}
+async function idbClear() {
+  const db = await getDB();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(IDB_STORE,'readwrite');
+    tx.objectStore(IDB_STORE).clear();
+    tx.oncomplete = res; tx.onerror = e=>rej(e.target.error);
+  });
+}
 
 function triggerSKUImport() { document.getElementById('skuFileInput').click(); }
 
@@ -1832,63 +1877,59 @@ async function handleSKUImport(input) {
     const ws = wb.Sheets[sheetName];
     if(!ws) throw new Error('ไม่พบ sheet ข้อมูล SKU');
 
-    // Read with header row; auto-detect column positions
     const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
     if(rows.length < 2) throw new Error('ไม่มีข้อมูลในไฟล์');
 
-    // Find columns by header name
     const hdr = rows[0].map(h=>String(h).toLowerCase().trim());
     const col = name => hdr.findIndex(h=>h.includes(name));
-    const iMonth = col('month') >= 0 ? col('month') : col('เดือน');
-    const iLoc   = col('loc') >= 0 ? col('loc') : col('รหัสคลัง');
-    const iCat   = col('cat') >= 0 ? col('cat') : col('รหัสกลุ่ม');
-    const iCatn  = col('catn') >= 0 ? col('catn') : col('ชื่อกลุ่ม');
-    const iSku   = col('sku') >= 0 ? col('sku') : col('รหัสสินค้า');
-    const iSkun  = col('skun') >= 0 ? col('skun') : col('ชื่อสินค้า');
-    const iUnit  = col('unit') >= 0 ? col('unit') : col('หน่วย');
-    const iQty   = col('qty') >= 0 ? col('qty') : col('จำนวน');
-    const iAmt   = col('amt') >= 0 ? col('amt') : col('มูลค่า');
+    const iMonth = col('month')>=0?col('month'):col('เดือน');
+    const iLoc   = col('loc')>=0?col('loc'):col('รหัสคลัง');
+    const iCat   = col('cat')>=0?col('cat'):col('รหัสกลุ่ม');
+    const iCatn  = col('catn')>=0?col('catn'):col('ชื่อกลุ่ม');
+    const iSku   = col('sku')>=0?col('sku'):col('รหัสสินค้า');
+    const iSkun  = col('skun')>=0?col('skun'):col('ชื่อสินค้า');
+    const iUnit  = col('unit')>=0?col('unit'):col('หน่วย');
+    const iQty   = col('qty')>=0?col('qty'):col('จำนวน');
+    const iAmt   = col('amt')>=0?col('amt'):col('มูลค่า');
     if(iMonth<0||iLoc<0||iSku<0) throw new Error('ไม่พบ columns ที่จำเป็น (month, loc, sku)');
 
-    // Reset store and rebuild
-    skuStore = {};
+    // Group rows by month
+    const byMonth = {};
     let total = 0;
     for(let i=1;i<rows.length;i++){
       const r = rows[i];
-      const monthKey = String(r[iMonth]||'').trim();
-      if(!monthKey) continue;
-      const locCode = String(r[iLoc]||'').trim();
-      if(!OUR_LOC_CODES.includes(locCode)) continue;
-      if(!skuStore[monthKey]) skuStore[monthKey] = [];
-      skuStore[monthKey].push({
-        loc: locCode,
-        cat: String(r[iCat]||'').trim(),
-        catn: String(r[iCatn]||'').trim(),
-        sku: String(r[iSku]||'').trim(),
-        skun: String(r[iSkun]||'').trim(),
-        unit: String(r[iUnit]||'').trim(),
-        qty: parseFloat(r[iQty])||0,
-        amt: parseFloat(r[iAmt])||0
+      const mk = String(r[iMonth]||'').trim(); if(!mk) continue;
+      const lc = String(r[iLoc]||'').trim();
+      if(!OUR_LOC_CODES.includes(lc)) continue;
+      if(!byMonth[mk]) byMonth[mk] = [];
+      byMonth[mk].push({
+        loc:lc, cat:String(r[iCat]||'').trim(), catn:String(r[iCatn]||'').trim(),
+        sku:String(r[iSku]||'').trim(), skun:String(r[iSkun]||'').trim(),
+        unit:String(r[iUnit]||'').trim(), qty:parseFloat(r[iQty])||0, amt:parseFloat(r[iAmt])||0
       });
       total++;
     }
-    const monthsLoaded = Object.keys(skuStore).sort();
-    btn.innerHTML = origHTML;
-    btn.disabled = false;
-    refreshImportBadge();
-    alert(`✅ โหลดสำเร็จ!\n\nข้อมูล: ${total.toLocaleString()} rows\nเดือน: ${monthsLoaded.length} เดือน (${monthsLoaded[0]} ถึง ${monthsLoaded[monthsLoaded.length-1]})\n\n💡 คลิกที่ตัวเลขในตาราง Pivot (Location × Month) เพื่อดู SKU breakdown`);
+
+    // Save each month to IndexedDB (replace existing)
+    await idbClear();
+    const saves = Object.entries(byMonth).map(([m,rs])=>idbPut(m,rs));
+    await Promise.all(saves);
+
+    const monthsLoaded = Object.keys(byMonth).sort();
+    btn.innerHTML = origHTML; btn.disabled = false;
+    await refreshImportBadge();
+    alert(`✅ บันทึกสำเร็จ! (จะคงอยู่แม้ refresh)\n\nข้อมูล: ${total.toLocaleString()} rows\nเดือน: ${monthsLoaded.length} เดือน (${monthsLoaded[0]} ถึง ${monthsLoaded[monthsLoaded.length-1]})\n\n💡 คลิกที่ตัวเลขใน Pivot → Location × Month เพื่อดู SKU`);
   } catch(e) {
     btn.innerHTML = origHTML; btn.disabled = false;
     alert('❌ ' + e.message);
   }
 }
 
-function refreshImportBadge() {
-  const months = Object.keys(skuStore);
+async function refreshImportBadge() {
+  const months = await idbKeys().catch(()=>[]);
   const btn = document.getElementById('importBtn');
   if(!btn) return;
-  const ex = btn.querySelector('.sku-badge');
-  if(ex) ex.remove();
+  const ex = btn.querySelector('.sku-badge'); if(ex) ex.remove();
   if(months.length) {
     const b = document.createElement('span');
     b.className = 'sku-badge';
@@ -1901,21 +1942,24 @@ function openDrillCell(locKey, monthKey, locLabel, monthLabel) {
   document.getElementById('drillOverlay').style.display = 'block';
   document.getElementById('drillPanel').style.display = 'flex';
   document.getElementById('drillTitle').textContent = locLabel + ' — ' + monthLabel;
-  document.getElementById('drillBody').innerHTML = buildSKUContent(locKey, monthKey, locLabel, monthLabel);
+  document.getElementById('drillBody').innerHTML = '<div style="padding:40px;text-align:center;color:#9ca3af;">⏳ กำลังโหลด...</div>';
   if(drillChartInst){drillChartInst.destroy();drillChartInst=null;}
+  buildSKUContent(locKey, monthKey, locLabel, monthLabel).then(html=>{
+    document.getElementById('drillBody').innerHTML = html;
+  });
 }
 
-function buildSKUContent(locKey, monthKey, locLabel, monthLabel) {
+async function buildSKUContent(locKey, monthKey, locLabel, monthLabel) {
   const locCode = LOC_NAME_TO_CODE[locKey] || locKey;
-  const monthData = skuStore[monthKey];
+  const monthData = await idbGet(monthKey).catch(()=>null);
 
   if(!monthData) {
-    const avail = Object.keys(skuStore).sort();
+    const avail = (await idbKeys().catch(()=>[])).sort();
     const mLabel = KEY_TO_MONTH[monthKey] || monthKey;
     return `<div class="sku-nodata">
       <div class="sku-nodata-icon">📂</div>
       <p>ยังไม่ได้ Import ข้อมูล SKU สำหรับ <b>${mLabel}</b></p>
-      ${avail.length ? `<p class="hint">ข้อมูลที่โหลดแล้ว: ${avail.map(k=>KEY_TO_MONTH[k]||k).join(', ')}</p>` : '<p class="hint">ยังไม่มีข้อมูล SKU</p>'}
+      ${avail.length?`<p class="hint">ข้อมูลที่มี: ${avail.map(k=>KEY_TO_MONTH[k]||k).join(', ')}</p>`:'<p class="hint">ยังไม่มีข้อมูล SKU</p>'}
       <button onclick="triggerSKUImport()">📂 นำเข้า AAG_SKU_Master.xlsx</button>
     </div>`;
   }
@@ -1940,53 +1984,4 @@ function buildSKUContent(locKey, monthKey, locLabel, monthLabel) {
   let html = `<div class="sku-stats">
     <div class="sku-stat"><div class="sku-stat-label">มูลค่ารวม</div><div class="sku-stat-val">฿${fmt(totAmt)}</div></div>
     <div class="sku-stat"><div class="sku-stat-label">จำนวนรวม</div><div class="sku-stat-val">${fmt(totQty)}</div></div>
-    <div class="sku-stat"><div class="sku-stat-label">จำนวน SKU</div><div class="sku-stat-val">${locData.length.toLocaleString()}</div></div>
-  </div><div class="sku-section">`;
-
-  Object.entries(byCat)
-    .sort(([,a],[,b])=>b.totAmt-a.totAmt)
-    .forEach(([catCode,catInfo],ci)=>{
-      const pct = totAmt>0?(catInfo.totAmt/totAmt*100).toFixed(1):0;
-      html += `<details ${ci<3?'open':''} style="margin-bottom:6px;">
-        <summary class="sku-cat-summary">
-          <span><span class="sku-cat-code">${catCode}</span>${catInfo.catn}</span>
-          <span class="sku-cat-amt">฿${fmt(catInfo.totAmt)} <span class="sku-pct">(${pct}%)</span></span>
-        </summary>
-        <table class="sku-tbl">
-          <thead><tr><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>หน่วย</th><th>QTY</th><th>มูลค่า</th></tr></thead>
-          <tbody>${catInfo.items.sort((a,b)=>b.amt-a.amt).map(r=>`
-            <tr>
-              <td>${r.sku}</td>
-              <td title="${r.skun}">${r.skun.length>45?r.skun.substring(0,45)+'…':r.skun}</td>
-              <td style="text-align:center;">${r.unit}</td>
-              <td>${r.qty.toLocaleString()}</td>
-              <td>฿${fmt(r.amt)}</td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
-      </details>`;
-    });
-
-  html += '</div>';
-  return html;
-}
-
-// ========== INIT PIVOT ==========
-function initPivot() {
-  initPivotToolbar();
-}
-
-// ========== INIT ==========
-document.getElementById('upd').textContent = new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
-renderCards();
-renderOverviewCharts();
-renderLocChips();
-renderLocChart();
-renderLocMonthTabs();
-renderLocTable();
-renderCatMonthTabs();
-renderCatTable();
-initPivot();
-</script>
-</body>
-</html>
+    <div class="sku-stat"><div class="sku-stat-label">จำนวน SKU</div><div class
