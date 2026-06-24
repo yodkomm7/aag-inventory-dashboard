@@ -1954,5 +1954,5 @@ function initPivot() {
 
 // ========== INIT ==========
 document.getElementById('upd').textContent = new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
-// Set active year button to match selectedYear (ปีล่าสุดใน data)
-document.querySelectorAll('.year-btn').forEach(b => b.classLis
+setYear(selectedYear); // initializes buttons + charts + all renders
+renderCatTable();      // setYear only renders cat table if cat tab active; alw
