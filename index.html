@@ -1342,8 +1342,10 @@ let amtChart, qtyChart;
 function renderOverviewCharts() {
   const _vm=getVisibleMonths(); const amtData = _vm.map(m=>LOC_DATA.reduce((s,l)=>s+(getMonthData(l,m).amount||0),0));
   const qtyData = _vm.map(m=>LOC_DATA.reduce((s,l)=>s+(getMonthData(l,m).qty||0),0));
-  amtChart = new Chart(document.getElementById('chartAmount'),{type:'bar',data:{labels:_vm,datasets:[{label:'Bal Amount',data:amtData,backgroundColor:_vm.map((m,i)=>i===_vm.length-1?'#4f46e5':'#c7d2fe'),borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'฿'+fmt(v)}}}}});
-  qtyChart = new Chart(document.getElementById('chartQty'),{type:'line',data:{labels:_vm,datasets:[{label:'Bal QTY',data:qtyData,borderColor:'#10b981',backgroundColor:'rgba(16,185,129,.1)',fill:true,tension:0.4,pointRadius:5}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>fmt(v)}}}}});
+  try {
+    amtChart = new Chart(document.getElementById('chartAmount'),{type:'bar',data:{labels:_vm,datasets:[{label:'Bal Amount',data:amtData,backgroundColor:_vm.map((m,i)=>i===_vm.length-1?'#4f46e5':'#c7d2fe'),borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'฿'+fmt(v)}}}}});
+    qtyChart = new Chart(document.getElementById('chartQty'),{type:'line',data:{labels:_vm,datasets:[{label:'Bal QTY',data:qtyData,borderColor:'#10b981',backgroundColor:'rgba(16,185,129,.1)',fill:true,tension:0.4,pointRadius:5}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>fmt(v)}}}}});
+  } catch(e) { console.warn('Overview chart error (Chart.js may not be loaded):', e); }
 }
 
 // ========== LOCATION CHIPS + CHART ==========
@@ -1367,7 +1369,7 @@ function renderLocChart() {
   const selLocs = cardFilter
     ? getFilteredLocs()
     : LOC_DATA.filter(d=>activeLocations.has(d.location));
-  const _lvm=getVisibleMonths(); locChart = new Chart(document.getElementById('chartLoc'),{type:'line',data:{labels:_lvm,datasets:selLocs.map((d,i)=>({label:d.location.substring(0,35),data:_lvm.map(m=>getMonthData(d,m).amount||null),borderColor:COLORS[i%COLORS.length],backgroundColor:'transparent',tension:0.4,pointRadius:5,borderWidth:2}))},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}},scales:{y:{ticks:{callback:v=>'฿'+fmt(v)}}}}});
+  const _lvm=getVisibleMonths(); try { locChart = new Chart(document.getElementById('chartLoc'),{type:'line',data:{labels:_lvm,datasets:selLocs.map((d,i)=>({label:d.location.substring(0,35),data:_lvm.map(m=>getMonthData(d,m).amount||null),borderColor:COLORS[i%COLORS.length],backgroundColor:'transparent',tension:0.4,pointRadius:5,borderWidth:2}))},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}},scales:{y:{ticks:{callback:v=>'฿'+fmt(v)}}}}}); } catch(e) { console.warn('Loc chart error:', e); }
 }
 
 // ========== LOCATION TABLE ==========
@@ -1953,6 +1955,4 @@ function initPivot() {
 }
 
 // ========== INIT ==========
-document.getElementById('upd').textContent = new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
-setYear(selectedYear); // initializes buttons + charts + all renders
-renderCatTable();      // setYear only renders cat table if cat tab active; alw
+document.getElementById('upd').textContent = new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'nu
