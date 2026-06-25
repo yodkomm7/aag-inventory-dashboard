@@ -1179,7 +1179,7 @@ const fmt = (n, compact=true) => {
   return n.toLocaleString('th-TH',{maximumFractionDigits:0});
 };
 const fmtFull = n => n==null?'—':n.toLocaleString('th-TH',{maximumFractionDigits:2});
-const fmtInt = n => { if(n==null) return '—'; if(Math.abs(n)>=1e6) return Math.floor(n/1e6)+'M'; if(Math.abs(n)>=1e3) return Math.floor(n/1e3)+'K'; return Math.floor(n).toLocaleString('th-TH'); };
+const fmtInt = n => { if(n==null) return '—'; return Math.round(n).toLocaleString('th-TH'); };
 const fmtDiff = d => { if(d==null) return ''; const s=d>0?'+':''; return s+fmt(d); };
 const getMonthData = (loc,month) => loc.months.find(m=>m.month===month)||{qty:0,amount:0,diff:null};
 const getCatMonthData = (cat,month) => cat.months.find(m=>m.m===month)||{qty:0,amount:0};
