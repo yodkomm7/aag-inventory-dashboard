@@ -1955,4 +1955,24 @@ function initPivot() {
 }
 
 // ========== INIT ==========
-document.getElementById('upd').textContent = new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'nu
+document.getElementById('upd').textContent = new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+// Set active year button
+document.querySelectorAll('.year-btn').forEach(b => b.classList.toggle('active', b.dataset.year === (selectedYear || 'all')));
+// Sync active month state to selected year
+const _ivm = getVisibleMonths();
+activeLocMonth = _ivm[_ivm.length-1];
+activeCatMonth = _ivm[_ivm.length-1];
+pvState.months = new Set(_ivm);
+// Render — cards first so they always show even if charts fail
+renderCards();
+renderOverviewCharts();
+renderLocChips();
+renderLocChart();
+renderLocMonthTabs();
+renderLocTable();
+renderCatMonthTabs();
+renderCatTable();
+initPivot();
+</script>
+</body>
+</html>
