@@ -1947,7 +1947,7 @@ async function buildSKUContent(locKey, monthKey, locLabel, monthLabel) {
   <div class="sku-sort-bar">
     <span class="sku-sort-label">เรียงโดย:</span>
     <button class="sku-sort-btn" data-col="3" data-label="QTY" onclick="skuSortBy(3)">QTY</button>
-    <button class="sku-sort-btn sku-sort-active" data-col="4" data-label="มูลค่า" onclick="skuSortBy(4)">มูลค่า ▼</button>
+    <button class="sku-sort-btn sku-sort-active" data-col="4" data-label="มูลค่ารวม" onclick="skuSortBy(4)">มูลค่ารวม ▼</button>
   </div>
   <div class="sku-search-wrap">
     <input class="sku-search" type="search" placeholder="ค้นหา รหัส / ชื่อสินค้า..." oninput="skuSearch(this)">
@@ -1966,7 +1966,7 @@ async function buildSKUContent(locKey, monthKey, locLabel, monthLabel) {
         </summary>
         <table class="sku-tbl">
           <colgroup><col><col><col><col><col></colgroup>
-          <thead><tr><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th style="text-align:center;">หน่วย</th><th>QTY</th><th>มูลค่า</th></tr></thead>
+          <thead><tr><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th style="text-align:center;">หน่วย</th><th>QTY</th><th>มูลค่ารวม</th></tr></thead>
           <tbody>${catInfo.items.sort((a,b)=>b[7]-a[7]).map(r=>`
             <tr>
               <td title="${r[3]}">${r[3]}</td>
