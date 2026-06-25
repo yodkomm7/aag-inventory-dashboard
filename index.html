@@ -1179,6 +1179,7 @@ const fmt = (n, compact=true) => {
   return n.toLocaleString('th-TH',{maximumFractionDigits:0});
 };
 const fmtFull = n => n==null?'—':n.toLocaleString('th-TH',{maximumFractionDigits:2});
+const fmtInt = n => { if(n==null) return '—'; if(Math.abs(n)>=1e6) return Math.floor(n/1e6)+'M'; if(Math.abs(n)>=1e3) return Math.floor(n/1e3)+'K'; return Math.floor(n).toLocaleString('th-TH'); };
 const fmtDiff = d => { if(d==null) return ''; const s=d>0?'+':''; return s+fmt(d); };
 const getMonthData = (loc,month) => loc.months.find(m=>m.month===month)||{qty:0,amount:0,diff:null};
 const getCatMonthData = (cat,month) => cat.months.find(m=>m.m===month)||{qty:0,amount:0};
@@ -1939,7 +1940,7 @@ async function buildSKUContent(locKey, monthKey, locLabel, monthLabel) {
   const totQty = locData.reduce((s,r)=>s+r[6],0);
 
   let html = `<div class="sku-stats">
-    <div class="sku-stat"><div class="sku-stat-label">มูลค่ารวม</div><div class="sku-stat-val">฿${fmt(totAmt)}</div></div>
+    <div class="sku-stat"><div class="sku-stat-label">มูลค่ารวม</div><div class="sku-stat-val">฿${fmtInt(totAmt)}</div></div>
     <div class="sku-stat"><div class="sku-stat-label">จำนวนรวม</div><div class="sku-stat-val">${fmt(totQty)}</div></div>
     <div class="sku-stat"><div class="sku-stat-label">จำนวน SKU</div><div class="sku-stat-val">${locData.length.toLocaleString()}</div></div>
   </div>
@@ -1961,7 +1962,7 @@ async function buildSKUContent(locKey, monthKey, locLabel, monthLabel) {
       html += `<details ${ci<3?'open':''} style="margin-bottom:6px;">
         <summary class="sku-cat-summary">
           <span><span class="sku-cat-code">${catCode}</span>${catInfo.catn}</span>
-          <span class="sku-cat-amt">฿${fmt(catInfo.totAmt)} <span class="sku-pct">(${pct}%)</span></span>
+          <span class="sku-cat-amt">฿${fmtInt(catInfo.totAmt)} <span class="sku-pct">(${pct}%)</span></span>
         </summary>
         <table class="sku-tbl">
           <colgroup><col><col><col><col><col></colgroup>
@@ -1972,7 +1973,7 @@ async function buildSKUContent(locKey, monthKey, locLabel, monthLabel) {
               <td title="${r[4]}">${r[4]}</td>
               <td style="text-align:center;">${r[5]}</td>
               <td>${r[6].toLocaleString()}</td>
-              <td>฿${fmt(r[7])}</td>
+              <td>฿${fmtInt(r[7])}</td>
             </tr>`).join('')}
           </tbody>
         </table>
