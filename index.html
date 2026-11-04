@@ -338,6 +338,14 @@
         <div class="dim-label">🔎 กรองเดือน</div>
         <div id="monthFilterBtns" class="dim-btns"></div>
       </div>
+      <div class="pivot-sep"></div>
+      <div class="dim-box" style="min-width:240px;">
+        <div class="dim-label">🏢 เลือกคลัง/โครงการ
+          <a onclick="setAllPivotLocs(true)" style="margin-left:6px;color:#4f46e5;cursor:pointer;font-weight:400;">ทั้งหมด</a>
+          <a onclick="setAllPivotLocs(false)" style="margin-left:4px;color:#9ca3af;cursor:pointer;font-weight:400;">ล้าง</a>
+        </div>
+        <div id="locFilterBtns" class="dim-btns"></div>
+      </div>
     </div>
 
     <div class="pivot-info-bar" id="pivotInfoBar">
@@ -826,6 +834,7 @@ let pvState = {
   col: 'month',
   val: 'amount',
   months: new Set(ALL_MONTHS_PIVOT),
+  locs: new Set(LOC_DATA.map(d=>d.location)),
   pivotChartInst: null
 };
 
@@ -842,6 +851,12 @@ function initPivotToolbar() {
   // Month filter chips
   document.getElementById('monthFilterBtns').innerHTML = ALL_MONTHS_PIVOT.map(m =>
     `<button class="dim-btn ${pvState.months.has(m)?'active':''}" style="font-size:.72rem;padding:3px 8px;" onclick="togglePivotMonth('${m}')">${m}</button>`).join('');
+  // Location/project filter chips
+  const lf = document.getElementById('locFilterBtns');
+  if(lf) lf.innerHTML = LOC_DATA.map((d,i)=>{
+    const nm=d.location; const short=nm.length>22?nm.slice(0,22)+'…':nm;
+    return `<button class="dim-btn ${pvState.locs.has(nm)?'active':''}" style="font-size:.72rem;padding:3px 8px;" title="${nm.replace(/"/g,'&quot;')}" onclick="togglePivotLoc(${i})">${short}</button>`;
+  }).join('');
 }
 
 function setPivotDim(which, val) {
@@ -856,6 +871,8 @@ function setPivotDim(which, val) {
 }
 function setPivotVal(v) { pvState.val=v; initPivotToolbar(); renderPivot(); }
 function togglePivotMonth(m) { pvState.months.has(m)?pvState.months.delete(m):pvState.months.add(m); initPivotToolbar(); renderPivot(); }
+function togglePivotLoc(i) { const nm=LOC_DATA[i].location; pvState.locs.has(nm)?pvState.locs.delete(nm):pvState.locs.add(nm); initPivotToolbar(); renderPivot(); }
+function setAllPivotLocs(all) { pvState.locs = all ? new Set(LOC_DATA.map(d=>d.location)) : new Set(); initPivotToolbar(); renderPivot(); }
 
 // Get row keys and labels for a given dimension
 function getPivotKeys(dim) {
@@ -940,6 +957,10 @@ function renderPivot() {
 
   // Filter columns by selected months if month is the col dim
   if(colDim==='month') colKeys = colKeys.filter(c=>pvState.months.has(c.key));
+
+  // Filter by selected locations/projects when location is a dimension
+  if(rowDim==='location') rowKeys = rowKeys.filter(r=>pvState.locs.has(r.key));
+  if(colDim==='location') colKeys = colKeys.filter(c=>pvState.locs.has(c.key));
 
   // Filter rows by search
   if(search) rowKeys = rowKeys.filter(r=>r.label.toLowerCase().includes(search.toLowerCase())||
