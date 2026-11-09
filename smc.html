@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Store Center (SMC) — Stock Remaining</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI','Sarabun',sans-serif; background:#f3f4f6; color:#1f2937; }
+  .hdr { background:linear-gradient(135deg,#1e1b4b,#4f46e5); color:white; padding:22px 28px; }
+  .hdr h1 { font-size:1.5rem; display:flex; align-items:center; gap:10px; }
+  .hdr .sub { opacity:.8; font-size:.85rem; margin-top:4px; }
+  .hdr .upd { opacity:.7; font-size:.78rem; margin-top:6px; }
+  .hdr a.back { color:#c7d2fe; font-size:.8rem; text-decoration:none; }
+  .wrap { max-width:1400px; margin:0 auto; padding:20px 28px 60px; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-bottom:20px; }
+  .stat { background:white; border-radius:12px; padding:16px 18px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .stat-label { font-size:.78rem; color:#9ca3af; }
+  .stat-val { font-size:1.5rem; font-weight:700; margin-top:4px; color:#1e1b4b; }
+  .top5-cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:22px; }
+  @media(max-width:860px){ .top5-cols { grid-template-columns:1fr; } }
+  .top5-wrap { }
+  .top5-head { display:flex; align-items:baseline; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+  .top5-title { font-size:1rem; font-weight:700; }
+  .top5-sub { font-size:.78rem; color:#9ca3af; }
+  .top5-row { display:flex; align-items:center; gap:12px; padding:10px 14px; background:white; border:1px solid #eef2f7; border-left:4px solid #ef4444; border-radius:9px; margin-bottom:7px; }
+  .top5-row.down { border-left-color:#10b981; }
+  .top5-rank { flex-shrink:0; width:26px; height:26px; border-radius:50%; background:#fee2e2; color:#dc2626; font-weight:700; font-size:.82rem; display:flex; align-items:center; justify-content:center; }
+  .top5-rank.down { background:#d1fae5; color:#059669; }
+  .top5-main { flex:1; min-width:0; }
+  .top5-code { font-family:monospace; font-size:.82rem; color:#374151; font-weight:600; }
+  .top5-new { display:inline-block; margin-left:6px; font-size:.62rem; background:#dbeafe; color:#2563eb; padding:1px 6px; border-radius:10px; font-weight:600; vertical-align:middle; }
+  .top5-name { font-size:.76rem; color:#6b7280; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .top5-cat { font-size:.7rem; color:#4f46e5; margin-top:2px; font-weight:600; }
+  .top5-vals { flex-shrink:0; text-align:right; }
+  .top5-diff { font-size:.95rem; font-weight:700; color:#dc2626; }
+  .top5-diff.down { color:#059669; }
+  .top5-flow { font-size:.7rem; color:#9ca3af; }
+  .sec-title { font-size:1.05rem; font-weight:700; margin:0 0 12px; display:flex; align-items:center; gap:8px; }
+  .search { width:100%; max-width:340px; border:1px solid #e5e7eb; border-radius:8px; padding:8px 12px; font-size:.85rem; outline:none; margin-bottom:14px; font-family:inherit; }
+  details.cat { background:white; border-radius:10px; margin-bottom:8px; box-shadow:0 1px 2px rgba(0,0,0,.05); overflow:hidden; }
+  summary.cat-sum { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; cursor:pointer; font-weight:600; font-size:.92rem; user-select:none; list-style:none; }
+  summary.cat-sum::-webkit-details-marker { display:none; }
+  summary.cat-sum::before { content:'▶'; font-size:.65rem; color:#9ca3af; margin-right:8px; transition:transform .15s; }
+  details[open] > summary.cat-sum::before { transform:rotate(90deg); }
+  .cat-code { font-family:monospace; font-size:.72rem; color:#9ca3af; margin-right:8px; }
+  .cat-amt { color:#4f46e5; font-weight:700; }
+  .cat-pct { color:#9ca3af; font-weight:400; font-size:.8rem; }
+  table.items { width:100%; border-collapse:collapse; font-size:.82rem; }
+  table.items th { background:#f9fafb; padding:7px 12px; text-align:right; color:#9ca3af; font-size:.72rem; text-transform:uppercase; border-bottom:1px solid #e5e7eb; }
+  table.items th:nth-child(1), table.items th:nth-child(2) { text-align:left; }
+  table.items td { padding:7px 12px; border-bottom:1px solid #f9fafb; text-align:right; vertical-align:top; }
+  table.items td:nth-child(1) { font-family:monospace; font-size:.78rem; color:#374151; text-align:left; word-break:break-all; width:190px; }
+  table.items td:nth-child(2) { text-align:left; color:#6b7280; }
+  table.items td:nth-child(3) { text-align:center; color:#9ca3af; }
+  .loading { text-align:center; padding:60px; color:#9ca3af; }
+  .export-btn { padding:7px 16px; border:1.5px solid #10b981; border-radius:20px; font-size:.82rem; background:white; cursor:pointer; color:#10b981; font-family:inherit; margin-bottom:14px; }
+  .export-btn:hover { background:#10b981; color:white; }
+</style>
+</head>
+<body>
+<div class="hdr">
+  <h1>🏬 Store Center (SMC) — สินค้าคงคลัง</h1>
+  <div class="sub">แยกตามหมวดสินค้า · เรียงจากมูลค่ามากไปน้อย</div>
+  <div class="upd" id="upd"></div>
+  <div style="margin-top:8px;"><a class="back" href="index.html">← กลับหน้ารวม Dashboard</a></div>
+</div>
+<div class="wrap">
+  <div class="stats" id="stats"></div>
+
+  <div class="top5-cols">
+    <div class="top5-wrap">
+      <div class="top5-head"><span class="top5-title">🔼 Top 5 มูลค่าเพิ่มขึ้น</span><span class="top5-sub" id="upSub"></span></div>
+      <div id="upBody"></div>
+    </div>
+    <div class="top5-wrap">
+      <div class="top5-head"><span class="top5-title">🔽 Top 5 มูลค่าลดลง</span><span class="top5-sub" id="downSub"></span></div>
+      <div id="downBody"></div>
+    </div>
+  </div>
+
+  <div class="sec-title">📦 สินค้าคงคลังแยกตามหมวด</div>
+  <button class="export-btn" onclick="exportSMC()">⬇ Export Excel</button>
+  <input class="search" id="search" placeholder="🔍 ค้นหา รหัส / ชื่อสินค้า..." oninput="renderCats()">
+  <div id="catBody"><div class="loading">⏳ กำลังโหลดข้อมูล...</div></div>
+</div>
+
+<script>
+const fmtInt = n => n==null ? '—' : Math.round(n).toLocaleString('th-TH');
+const fmtK = n => { if(n==null) return '—'; if(Math.abs(n)>=1e6) return (n/1e6).toFixed(2)+'M'; if(Math.abs(n)>=1e3) return (n/1e3).toFixed(1)+'K'; return Math.round(n).toLocaleString('th-TH'); };
+
+async function fetchGz(url, smcFilter) {
+  try {
+    const resp = await fetch(url, {cache:'no-store'});
+    if(!resp.ok) return null;
+    const ds = new DecompressionStream('gzip');
+    const stream = resp.body.pipeThrough(ds);
+    const text = await new Response(stream).text();
+    let data = JSON.parse(text);
+    if(smcFilter) data = data.filter(r => r[0]==='SMC');
+    return data;
+  } catch(e) { console.error(url, e); return null; }
+}
+
+// SMC records: [loc, catCode, catName, itemCode, itemName, unit, qty, amt]
+let CUR = [], PREV = [], curLabel='', prevLabel='';
+
+async function loadData() {
+  // Try weekly snapshot index first, fall back to monthly SKU
+  let entries = null;
+  try {
+    const r = await fetch('smc/index.json?v='+Date.now(), {cache:'no-store'});
+    if(r.ok) entries = await r.json();
+  } catch(e) {}
+  if(!entries || entries.length < 1) {
+    // hardcoded monthly fallback (SMC filtered from main sku files)
+    entries = [
+      {date:'2026-09-30', label:'30 ก.ย. 2026', src:'sku/2026-09.json.gz', smcFilter:true},
+      {date:'2026-10-31', label:'31 ต.ค. 2026', src:'sku/2026-10.json.gz', smcFilter:true}
+    ];
+  }
+  entries.sort((a,b)=>a.date.localeCompare(b.date));
+  const curE = entries[entries.length-1];
+  const prevE = entries.length>=2 ? entries[entries.length-2] : null;
+  curLabel = curE.label || curE.date;
+  prevLabel = prevE ? (prevE.label || prevE.date) : '—';
+  const [cur, prev] = await Promise.all([
+    fetchGz(curE.src, curE.smcFilter),
+    prevE ? fetchGz(prevE.src, prevE.smcFilter) : Promise.resolve([])
+  ]);
+  CUR = (cur||[]).filter(r=>r[3] && (r[1]||'').slice(0,5)!=='RM.AA');
+  PREV = (prev||[]).filter(r=>r[3] && (r[1]||'').slice(0,5)!=='RM.AA');
+  document.getElementById('upd').textContent = `ข้อมูล ณ ${curLabel} · เทียบ ${prevLabel}`;
+  renderStats(); renderTop5(); renderCats();
+}
+
+function renderStats() {
+  const totAmt = CUR.reduce((s,r)=>s+(r[7]||0),0);
+  const totQty = CUR.reduce((s,r)=>s+(r[6]||0),0);
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="stat-label">มูลค่ารวม SMC</div><div class="stat-val">฿${fmtInt(totAmt)}</div></div>
+    <div class="stat"><div class="stat-label">จำนวนรวม</div><div class="stat-val">${fmtK(totQty)}</div></div>
+    <div class="stat"><div class="stat-label">จำนวน SKU</div><div class="stat-val">${CUR.length.toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-label">จำนวนหมวด</div><div class="stat-val">${new Set(CUR.map(r=>(r[1]||'').slice(0,5))).size}</div></div>`;
+}
+
+function aggByItem(data){
+  const m={};
+  for(const r of data){ if(!m[r[3]]) m[r[3]]={name:r[4],cat:(r[1]||'').slice(0,5),amt:0}; m[r[3]].amt+=r[7]||0; }
+  return m;
+}
+function renderTop5() {
+  document.getElementById('upSub').textContent = `${prevLabel} → ${curLabel}`;
+  document.getElementById('downSub').textContent = `${prevLabel} → ${curLabel}`;
+  const C=aggByItem(CUR), P=aggByItem(PREV);
+  const ups=[], downs=[];
+  const keys=new Set([...Object.keys(C),...Object.keys(P)]);
+  for(const k of keys){
+    const ca=C[k]?C[k].amt:0, pa=P[k]?P[k].amt:0, diff=ca-pa;
+    const name=(C[k]||P[k]).name||'', cat=(C[k]||P[k]).cat||'';
+    if(diff>0.5) ups.push({code:k,name,cat,diff,cur:ca,prev:pa,badge:(k in P)?'':'ใหม่'});
+    else if(diff<-0.5) downs.push({code:k,name,cat,diff,cur:ca,prev:pa,badge:(k in C)?'':'หมด'});
+  }
+  ups.sort((a,b)=>b.diff-a.diff); downs.sort((a,b)=>a.diff-b.diff);
+  const row=(r,i,down)=>`
+    <div class="top5-row${down?' down':''}">
+      <div class="top5-rank${down?' down':''}">${i+1}</div>
+      <div class="top5-main">
+        <div class="top5-code">${r.code}${r.badge?`<span class="top5-new">${r.badge}</span>`:''}</div>
+        <div class="top5-name" title="${(r.name||'').replace(/"/g,'&quot;')}">${r.name||''}</div>
+        <div class="top5-cat">${r.cat}</div>
+      </div>
+      <div class="top5-vals">
+        <div class="top5-diff${down?' down':''}">${down?'−':'+'}฿${fmtInt(Math.abs(r.diff))}</div>
+        <div class="top5-flow">฿${fmtInt(r.prev)} → ฿${fmtInt(r.cur)}</div>
+      </div>
+    </div>`;
+  document.getElementById('upBody').innerHTML = ups.length?ups.slice(0,5).map((r,i)=>row(r,i,false)).join(''):'<div class="loading" style="padding:20px;">ไม่มีรายการเพิ่มขึ้น</div>';
+  document.getElementById('downBody').innerHTML = downs.length?downs.slice(0,5).map((r,i)=>row(r,i,true)).join(''):'<div class="loading" style="padding:20px;">ไม่มีรายการลดลง</div>';
+}
+
+function renderCats() {
+  const q=(document.getElementById('search').value||'').toLowerCase().trim();
+  let data = CUR;
+  if(q) data = CUR.filter(r=>(r[3]||'').toLowerCase().includes(q)||(r[4]||'').toLowerCase().includes(q));
+  const byCat={};
+  for(const r of data){ const p=(r[1]||'').slice(0,5); if(!byCat[p]) byCat[p]={name:r[2]||p,items:[],amt:0}; byCat[p].items.push(r); byCat[p].amt+=r[7]||0; }
+  const totAmt=data.reduce((s,r)=>s+(r[7]||0),0);
+  const cats=Object.entries(byCat).sort(([,a],[,b])=>b.amt-a.amt);
+  if(!cats.length){ document.getElementById('catBody').innerHTML='<div class="loading">ไม่พบรายการ</div>'; return; }
+  document.getElementById('catBody').innerHTML = cats.map(([code,info],ci)=>{
+    const pct=totAmt>0?(info.amt/totAmt*100).toFixed(1):0;
+    const rows=info.items.sort((a,b)=>b[7]-a[7]).map(r=>`
+      <tr><td title="${r[3]}">${r[3]}</td><td title="${(r[4]||'').replace(/"/g,'&quot;')}">${r[4]||''}</td>
+      <td>${r[5]||''}</td><td>${(r[6]||0).toLocaleString()}</td><td>฿${fmtInt(r[7])}</td></tr>`).join('');
+    return `<details class="cat" ${ci<3?'open':''}>
+      <summary class="cat-sum"><span><span class="cat-code">${code}</span>${info.name}</span>
+      <span><span class="cat-amt">฿${fmtInt(info.amt)}</span> <span class="cat-pct">(${pct}%)</span></span></summary>
+      <table class="items"><thead><tr><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th style="text-align:center;">หน่วย</th><th>QTY</th><th>มูลค่ารวม</th></tr></thead>
+      <tbody>${rows}</tbody></table></details>`;
+  }).join('');
+}
+
+function exportSMC() {
+  const rows=[['รหัสสินค้า','ชื่อสินค้า','หมวดหมู่','หน่วย','QTY','มูลค่ารวม (บาท)']];
+  [...CUR].sort((a,b)=>b[7]-a[7]).forEach(r=>rows.push([r[3],r[4],r[1],r[5],r[6]||0,Math.round(r[7]||0)]));
+  function go(XLSX){
+    const wb=XLSX.utils.book_new(); const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:22},{wch:50},{wch:14},{wch:8},{wch:12},{wch:18}];
+    XLSX.utils.book_append_sheet(wb,ws,'SMC'); XLSX.writeFile(wb,`SMC_${curLabel.replace(/[^a-zA-Z0-9]/g,'_')}.xlsx`);
+  }
+  if(window.XLSX){go(window.XLSX);return;}
+  const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload=()=>go(window.XLSX); document.head.appendChild(s);
+}
+
+loadData();
+</script>
+</body>
+</html>
